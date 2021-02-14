@@ -10,7 +10,7 @@
 @time using Plots
 
 test = false
-visualization = true
+visualization = false
 
 # ------------------------------------------------------------------
 
@@ -19,11 +19,11 @@ t = 0 # micro timestep
 T = 0 # Macro timestep
 
 # parameters
-n = 5*10^7 # number of agent
+n = 10^6 # number of agent
 N = n ÷ 500 # number of stage network
 m = 3 # number of network link
 
-β = 0.01 # infection rate
+β = 0.02 # infection rate
 invε = 10 # inverse-epsilon
 
 fear_threshold = 1000
@@ -35,7 +35,27 @@ recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------
 
+S_ = Array{Int64, 1}()
+E_ = Array{Int64, 1}()
+I_ = Array{Int64, 1}()
+R_ = Array{Int64, 1}()
+
+Ag_ = Array{Int64, 1}()
+Ne_ = Array{Int64, 1}()
+Pr_ = Array{Int64, 1}()
+Re_ = Array{Int64, 1}()
+
+PERSONAL_ = Array{Float64, 1}()
+VALUE_ = Array{Float64, 1}()
+
 ID = 1:n
+PUBLIC = 50 # Public score
+protective = 0.1
+neutral    = 0.5
+aggressive = 0.9
+
+reward_day = -7
+reward_move = 3
 
 # ------------------------------------------------------------------
 
@@ -51,17 +71,6 @@ LpU = sort!(rand(1:100, n, 2), dims = 2)
 L = LpU[:,1]
 U = LpU[:,2]
 value = personal = rand(1:100, n)
-# L = rand(1:50, n) # necessary or Lower bound
-# U = L + rand(1:50, n) # sufficient or Upper bound
-# personal = rand(1:100, n) # personal score
-# value = zeros(Int64, n)
-PUBLIC = 50 # Public score
-protective = 0.1
-neutral    = 0.5
-aggressive = 0.9
-
-reward_day = -7
-reward_move = 3
 
 INCUBATION = zeros(Int64, n) .- 1
   RECOVERY = zeros(Int64, n) .- 1
@@ -69,28 +78,11 @@ INCUBATION = zeros(Int64, n) .- 1
 G = barabasi_albert(N, m)
 
 state = Array{Char, 1}(undef, n); state .= 'S' # using SEIR model
-# 'A': Aggressive, 'N': Neutral, 'P': Protective, 'R': Removed
-policy = Array{Char, 1}(undef, n); policy .= 'N'
+policy = Array{Char, 1}(undef, n); policy .= 'N' # 'A': Aggressive, 'N': Neutral, 'P': Protective, 'R': Removed
 host = rand(ID, 10); state[host] .= 'I'
 RECOVERY[host] .= round.(rand(recovery_period, 10)) .+ 1
 
-S_ = Array{Int64, 1}()
-E_ = Array{Int64, 1}()
-I_ = Array{Int64, 1}()
-R_ = Array{Int64, 1}()
-
-Ag_ = Array{Int64, 1}()
-Ne_ = Array{Int64, 1}()
-Pr_ = Array{Int64, 1}()
-Re_ = Array{Int64, 1}()
-
-PERSONAL_ = Array{Float64, 1}()
-VALUE_ = Array{Float64, 1}()
-
-# ------------------------------------------------------------------
-
 LOCATION = rand(0:N, n) # macro location
-# LOCATION[host] .= 1; # replace sampling
 location = rand(2, n) # micro location
 location_pixel = zeros(Int64, 2, n)
 
@@ -111,7 +103,7 @@ location_pixel = zeros(Int64, 2, n)
     n_I = sum(state .== 'I')
     value = (state .!= 'R') .* (value .+ (
         personal .+ 
-        fear_factor*(n_I > 100) .+
+        # fear_factor*(n_I > 100) .+
         fear_factor*(n_I > 1000)
         )) ./ 2
 
@@ -131,13 +123,10 @@ location_pixel = zeros(Int64, 2, n)
     protective * (policy4)
     for id in ID[policy .!= 'R']
         if rand() < decision[id]
-            if rand([true, false])
-                if LOCATION[id] == 0
-                    LOCATION[id] = rand(1:N)
-                else
-                    LOCATION[id] = rand(G.fadjlist[LOCATION[id]])
-                end
-                personal[id] += reward_move
+            if LOCATION[id] == 0
+                LOCATION[id] = rand(1:N)
+            else
+                LOCATION[id] = rand(G.fadjlist[LOCATION[id]])
             end
             personal[id] += reward_move
         else
@@ -171,12 +160,8 @@ location_pixel = zeros(Int64, 2, n)
             end
         end
 
-        # location[:,ID_staged] += rand(brownian, size_staged)
-        # location_pixel = Int64.(ceil.(invε .* location))
-
-        # print(LOCATION[state .== 'I'])
-        @threads for node in unique(LOCATION[state .== 'I'])
-            if node == 0 continue end
+        @threads for node in setdiff(unique(LOCATION[state .== 'I']), 0)
+            # if node == 0 continue end
             bit_S = (LOCATION .== node) .& (state .== 'S')
             bit_I = (LOCATION .== node) .& (state .== 'I')
             ID_S = ID[bit_S]
@@ -214,12 +199,38 @@ mean(L[state .!= 'R'])
 mean(U[state .!= 'R'])
 
 
-if visualization
-    plot(PERSONAL_)
-    plot(VALUE_)
-    plot([E_, I_])
-    plot(R_)
-end
+# if visualization
+plot_score = plot(PERSONAL_, label = "personal", color= :blue,
+ size = (600, 200), dpi = 300, legend=:topright)
+ plot!(VALUE_, label = "value", color= :orange)
+savefig(plot_score, "plot_score.png")
+
+plot_policy = plot(Re_, label = "Re", color= :black,
+ size = (600, 200), dpi = 300, legend=:right)
+ plot!(Ag_, label = "Ag", color= :red)
+ plot!(Ne_, label = "Ne", color= :green)
+ plot!(Pr_, label = "Pr", color= :blue)
+savefig(plot_policy, "plot_policy.png")
+
+
+plot_EI = plot(E_, label = "E", color= :red, linestyle = :dash,
+ size = (400, 300), dpi = 300, legend=:topleft)
+ plot!(I_, label = "I", color= :red)
+ xlabel!("T"); ylabel!("#")
+savefig(plot_EI, "plot_EI.png")
+
+plot_R = plot(R_, label = "R", color= :black,
+ size = (400, 300), dpi = 300, legend=:topleft)
+ xlabel!("T"); ylabel!("#")
+savefig(plot_R, "plot_R.png")
+# end
 
 # using ProfileView
 # ProfileView.view()
+# plot!(figure[2], sol,vars=(0,1),
+# linestyle = :dash,  color = :black,
+# label = "Theoretical", legend=:topleft)
+# plot!(figure[2], 0.0:0.01:t, time_evolution,
+# color = RGB(1.,94/255,0.), linewidth = 2, label = "Simulation",
+# yscale = :log10, yticks = 10 .^(1:4))
+# ylims!(figure[2], 0., 100.)
