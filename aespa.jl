@@ -10,7 +10,7 @@
 @time using Distributions
 @time using Plots
 
-test = true
+test = false
 visualization = false
 
 # ------------------------------------------------------------------
@@ -62,16 +62,18 @@ neutral    = 0.5
 aggressive = 0.9
 
 reward_day = -11
-reward_move = 5
+reward_macro = 20
+reward_micro = 1
 
 # ------------------------------------------------------------------
 
 # Random Setting
 if test
-    Random.seed!(0)
+    global seed = 0
 else
-    Random.seed!();
+    global seed += 1
 end
+Random.seed!(seed);
 
 # Random Vector
 LpU = sort!(rand(1:100, n, 2), dims = 2)
@@ -105,15 +107,18 @@ location_pixel = zeros(Int64, 2, n)
     state[bit_RECOVERY] .= 'R'
     personal[bit_RECOVERY] .= 0
 
+    n_I = sum(state .== 'I')
+    n_R = sum(state .== 'R')
+    push!(S_, sum(state .== 'S'))
+    push!(E_, sum(state .== 'E'))
+    push!(I_, n_I)
+    push!(R_, n_R)
+
     personal = personal .+ reward_day
 
-    n_I = sum(state .== 'I')
-    value = ((1 - α) * value) .+ (α * personal) .+ fear_factor*(n_I > fear_threshold) 
-    # value = (state .!= 'R') .* (value .+ (
-    #     personal .+ 
-    #     # fear_factor*(n_I > 100) .+
-    #     fear_factor*(n_I > 1000)
-    #     )) ./ 2
+    value = ((1 - α) * value) .+ (α * personal) .+
+     fear_factor/(1 + exp(n_R/100 - n_I) )*(n_I > fear_threshold)
+    #  rand(noise, n)
 
     policy[bit_RECOVERY] .= 'R'
     policy2 =       value .≤  L
@@ -136,7 +141,7 @@ location_pixel = zeros(Int64, 2, n)
             else
                 LOCATION[id] = rand(NODE[LOCATION[id]]) # 이것도 스태틱하게 딱 저장해서 할 수 있을듯
             end
-            personal[id] += reward_move
+            personal[id] += reward_macro
         else
             LOCATION[id] = 0
         end
@@ -146,10 +151,6 @@ location_pixel = zeros(Int64, 2, n)
     ID_staged = ID[bit_staged]
     n_staged = length(ID_staged)
 
-    push!(S_, sum(state .== 'S'))
-    push!(E_, sum(state .== 'E'))
-    push!(I_, sum(state .== 'I'))
-    push!(R_, sum(state .== 'R'))
 
     # push!(Re_, sum(policy1))
     push!(Ag_, sum(policy2))
@@ -158,8 +159,8 @@ location_pixel = zeros(Int64, 2, n)
 
     push!(VALUE_, mean(value))
     push!(PERSONAL_, mean(personal))
-    print("T: $T - Staged: $n_staged | S: $(S_[T]) | E: $(E_[T]) | I: $(I_[T]) | R:$(R_[T])")
-    println(" | Personal: $(PERSONAL_[T]) | Aggressive $(Ag_[T]) | Neutral: $(Ne_[T]) | Protective: $(Pr_[T]) |")
+    print("$T-Staged: $n_staged |S: $(S_[T]) |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
+    println(" |Personal: $(PERSONAL_[T]) |Aggressive $(Ag_[T]) | Protective: $(Pr_[T]) |")
 
     for t in 1:8
         bit_macro_S = (state .== 'S')
@@ -167,14 +168,7 @@ location_pixel = zeros(Int64, 2, n)
 
         moved = ID_staged[rand(n_staged) .< decision[ID_staged]]
         LOCATION[moved] = rand.(NODE[LOCATION[moved]])
-        personal[moved] .+= reward_move
-
-        # for id in ID_staged
-        #     if rand() < decision[id]
-        #         LOCATION[id] = rand(NODE[LOCATION[id]])
-        #         personal[id] += reward_move
-        #     end
-        # end
+        personal[moved] .+= reward_micro
 
         NODE_I = setdiff(unique(LOCATION[bit_macro_I]), 0)
         if length(NODE_I) ≥ 40
@@ -227,8 +221,9 @@ mean(U[state .!= 'R'])
 
 # if visualization
 plot_score = plot(PERSONAL_, label = "personal", color= :blue,
- size = (600, 200), dpi = 300, legend=:topright)
+ size = (600, 200), dpi = 300, legend=:top)
  plot!(VALUE_, label = "value", color= :orange)
+#  ylims!(0,100)
 savefig(plot_score, "plot_score.png")
 
 plot_policy = plot(Re_, label = "Re", color= :black,
