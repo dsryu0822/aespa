@@ -23,7 +23,7 @@ n = 10^5 # number of agent
 N = n ÷ 1000 # number of stage network
 m = 3 # number of network link
 
-α = 0.3
+α = 1.0
 β = 0.01 # infection rate
 # invε = 10 # inverse-epsilon
 ε² = 0.0025
@@ -52,6 +52,7 @@ Ne_ = Array{Int64, 1}()
 Pr_ = Array{Int64, 1}()
 Re_ = Array{Int64, 1}()
 
+FEAR_ = Array{Float64, 1}()
 PERSONAL_ = Array{Float64, 1}()
 VALUE_ = Array{Float64, 1}()
 
@@ -115,9 +116,12 @@ location_pixel = zeros(Int64, 2, n)
     push!(R_, n_R)
 
     personal = personal .+ reward_day
-
-    value = ((1 - α) * value) .+ (α * personal) .+
-     fear_factor/(1 + exp(n_R/100 - n_I) )*(n_I > fear_threshold)
+    fear = fear_factor/(1 + exp(n_R/100 - n_I) )*(n_I > fear_threshold)
+    value = ((1 - α) * value) .+ (α * personal) .+ fear
+    
+    push!(PERSONAL_, mean(personal))
+    push!(FEAR_, fear)
+    push!(VALUE_, mean(value))
     #  rand(noise, n)
 
     policy[bit_RECOVERY] .= 'R'
@@ -157,8 +161,6 @@ location_pixel = zeros(Int64, 2, n)
     push!(Ne_, sum(policy3))
     push!(Pr_, sum(policy4))
 
-    push!(VALUE_, mean(value))
-    push!(PERSONAL_, mean(personal))
     print("$T-Staged: $n_staged |S: $(S_[T]) |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
     println(" |Personal: $(PERSONAL_[T]) |Aggressive $(Ag_[T]) | Protective: $(Pr_[T]) |")
 
@@ -213,15 +215,9 @@ location_pixel = zeros(Int64, 2, n)
     end
 end
 
-mean(L[state .== 'R'])
-mean(U[state .== 'R'])
-
-mean(L[state .!= 'R'])
-mean(U[state .!= 'R'])
-
 # if visualization
 plot_score = plot(PERSONAL_, label = "personal", color= :blue,
- size = (600, 200), dpi = 300, legend=:top)
+ size = (600, 200), dpi = 300, legend=:bottomleft)
  plot!(VALUE_, label = "value", color= :orange)
 #  ylims!(0,100)
 savefig(plot_score, "plot_score.png")
