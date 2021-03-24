@@ -4,41 +4,33 @@
 @time using Random
 @time using Base.Threads
 # @time using Dates
-@time using Distances
+@time using NearestNeighbors
 @time using LinearAlgebra
 @time using LightGraphs
 @time using Distributions
 @time using Plots
 
-test = false
+test = true
 visualization = false
 
 # ------------------------------------------------------------------
 
 # variables
-T = 0 # Macro timestep
+global T = 0 # Macro timestep
 
 # parameters
-n = 10^5 # number of agent
+n = 10^6 # number of agent
 N = n ÷ 1000 # number of stage network
 m = 3 # number of network link
 
 α = 1.0
-β = 0.01 # infection rate
+β = 0.002 # infection rate
 # invε = 10 # inverse-epsilon
-ε² = 0.0025
+ε = 0.05
 
-fear_threshold = 100
-fear_factor = 10
-
-brownian = MvNormal(2, 0.05) # moving process
+brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 recovery_period = Weibull(3, 7.17)
-noise = Cauchy(0,1)
-
-for t in 1:20
-    println(mean(rand(noise, 100,100)))
-end
 
 # ------------------------------------------------------------------
 
@@ -96,10 +88,12 @@ LOCATION = rand(0:N, n) # macro location
 location = rand(2, n) # micro location
 location_pixel = zeros(Int64, 2, n)
 
+fear_flag = false
+
 # ------------------------------------------------------------------
 # @profview while sum(state .== 'E') + sum(state .== 'I') > 0
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
-    T += 1
+    global T += 1
 
     INCUBATION .-= 1
     RECOVERY .-= 1
@@ -116,7 +110,17 @@ location_pixel = zeros(Int64, 2, n)
     push!(R_, n_R)
 
     personal = personal .+ reward_day
-    fear = fear_factor/(1 + exp(n_R/100 - n_I) )*(n_I > fear_threshold)
+    if fear_flag && (n_I < 100)
+        fear_flag = false
+    elseif !fear_flag && (n_I > 1000)
+        fear_flag = true
+    end
+    if fear_flag
+        fear = 5*log(n_I)
+    else
+        fear = 0
+    end
+    println(fear)
     value = ((1 - α) * value) .+ (α * personal) .+ fear
     
     push!(PERSONAL_, mean(personal))
@@ -184,7 +188,9 @@ location_pixel = zeros(Int64, 2, n)
                 location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, sum(bit_S)), 1.0)
                 location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, sum(bit_I)), 1.0)
 
-                contact = vec(sum(pairwise(SqEuclidean(),location[:,ID_S],location[:,ID_I]) .< ε², dims=2))
+                kdtreeI = KDTree(location[:,ID_I])
+                contact = length.(inrange(kdtreeI, location[:,ID_S], ε))
+
                 bit_infected = rand(sum(bit_S)) .< (1 .- (1 - β).^contact)
                 ID_infected = ID_S[bit_infected]
                 
@@ -202,8 +208,10 @@ location_pixel = zeros(Int64, 2, n)
     
                 location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, sum(bit_S)), 1.0)
                 location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, sum(bit_I)), 1.0)
-    
-                contact = vec(sum(pairwise(SqEuclidean(),location[:,ID_S],location[:,ID_I]) .< ε², dims=2))
+
+                kdtreeI = KDTree(location[:,ID_I])
+                contact = length.(inrange(kdtreeI, location[:,ID_S], ε))
+
                 bit_infected = rand(sum(bit_S)) .< (1 .- (1 - β).^contact)
                 ID_infected = ID_S[bit_infected]
                 
