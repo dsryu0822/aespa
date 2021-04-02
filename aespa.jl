@@ -2,7 +2,7 @@
 @time using Statistics
 @time using Random
 @time using Base.Threads
-# @time using Dates
+@time using Dates
 @time using NearestNeighbors
 @time using LinearAlgebra
 @time using LightGraphs
@@ -15,15 +15,14 @@ visualization = false
 
 # ------------------------------------------------------------------
 
-# variables
-global T = 0 # Macro timestep
-
 # parameters
-n = 10^5 # number of agent
+n = 5*10^7 # number of agent
 N = n ÷ 1000 # number of stage network
 m = 3 # number of network link
+ID = 1:n
+number_of_host = 10
 
-β = 0.007 # infection rate
+β = 0.01 # infection rate
 ε = 0.05
 
 brownian = MvNormal(2, 0.01) # moving process
@@ -32,18 +31,7 @@ recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------
 
-S_ = Array{Int64, 1}()
-E_ = Array{Int64, 1}()
-I_ = Array{Int64, 1}()
-R_ = Array{Int64, 1}()
 
-Ag_ = Array{Int64, 1}()
-Pr_ = Array{Int64, 1}()
-# δ_ = Array{Float64, 1}()
-
-daily_ = Array{Int64, 1}()
-
-ID = 1:n
 # PUBLIC = 50 # Public score
 
 # reward_day = -10
@@ -51,45 +39,56 @@ ID = 1:n
 # reward_micro = 1
 
 # ------------------------------------------------------------------
-
 # Random Setting
-Random.seed!(0);
+SEED = 1:1
+ensemble = Int64[]
+for seed_number ∈ SEED
+println(seed_number)
+Random.seed!(seed_number);
 
+S_ = Array{Int64, 1}()
+E_ = Array{Int64, 1}()
+I_ = Array{Int64, 1}()
+R_ = Array{Int64, 1}()
+daily_ = Array{Int64, 1}()
+
+Ag_ = Array{Int64, 1}()
+Pr_ = Array{Int64, 1}()
 # Random Vector
-θ = rand(1:100, n)
-G = rand(1:100, n)
+# θ = rand(1:100, n)
+# G = rand(1:100, n)
 
 INCUBATION = zeros(Int64, n) .- 1
-  RECOVERY = zeros(Int64, n) .- 1
+RECOVERY = zeros(Int64, n) .- 1
 
 NODE = barabasi_albert(N, m).fadjlist
 
-state = Array{Char, 1}(undef, n); state .= 'S' # using SEIR model
 policy = rand(['A', 'P'], n) # 'A': Aggressive, 'P': Protective, 'R': Removed
-host = rand(ID, 10); state[host] .= 'I'
-RECOVERY[host] .= round.(rand(recovery_period, 10)) .+ 1
-
+state = Array{Char, 1}(undef, n); state .= 'S' # using SEIR model
+host = rand(ID, number_of_host); state[host] .= 'I'
+RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
+    
 LOCATION = rand(0:N, n) # macro location
 location = rand(2, n) # micro location
 
 campaign_flag = false
-
-# ------------------------------------------------------------------
+T = 0 # Macro timestep
 # @profview while sum(state .== 'E') + sum(state .== 'I') > 0
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
-    global T += 1
+    T += 1
+    if T > 2000 break end
 
     INCUBATION .-= 1
     RECOVERY .-= 1
     state[INCUBATION .== 0] .= 'I'
     bit_RECOVERY = (RECOVERY .== 0)
     state[bit_RECOVERY] .= 'R'
-    G[bit_RECOVERY] .= 0
+    # G[bit_RECOVERY] .= 0
 
-    bit_S = state .== 'S'
-    bit_E = state .== 'E'
-    bit_I = state .== 'I'
-    bit_R = state .== 'R'
+    bit_S = (state .== 'S')
+    bit_E = (state .== 'E')
+    bit_I = (state .== 'I')
+    bit_R = (state .== 'R')
     
     n_I = sum(bit_I)
     n_R = sum(bit_R)
@@ -99,8 +98,6 @@ campaign_flag = false
     push!(R_, n_R)
     push!(daily_, sum(INCUBATION .== 0))
 
-    transition = rand(n)
-
     # G = G .+ reward_day
     if campaign_flag && (n_I < 100)
         campaign_flag = false
@@ -108,15 +105,16 @@ campaign_flag = false
     if n_I > 1000
         campaign_flag = true
     end
-
+    
     bit_A = (policy .== 'A')
     bit_P = (policy .== 'P')
-
-    policy[bit_P .& (transition .< 0.1)] .= 'A'
+    
+    transition = rand(n)
+    policy[bit_P .& (transition .< 0.05)] .= 'A'
     if campaign_flag
-        policy[bit_A .& (transition .< 0.25)] .= 'P'
+        policy[bit_A .& (transition .< 0.2)] .= 'P'
     else
-        policy[bit_A .& (transition .< 0.1)] .= 'P'
+        policy[bit_A .& (transition .< 0.05)] .= 'P'
     end
 
     bit_R = (state .== 'R')
@@ -137,7 +135,9 @@ campaign_flag = false
 
     for id in ID[bit_A]
         if LOCATION[id] > 0
-            LOCATION[id] = rand(NODE[LOCATION[id]])
+            if rand() < ε
+                LOCATION[id] = rand(NODE[LOCATION[id]])
+            end
         else
             LOCATION[id] *= -1
         end
@@ -154,18 +154,22 @@ campaign_flag = false
     push!(Ag_, sum(bit_A))
     push!(Pr_, sum(bit_P))
 
-    println("$T-Staged: $n_staged |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
+    if T > 0
+        println("$T-Staged: $n_staged |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
+    end
 
     for t in 1:8
         bit_macro_S = (bit_staged .& bit_S)
         bit_macro_I = (bit_staged .& bit_I)
 
-        moved = ID_staged[rand(n_staged) .< ε]
-        LOCATION[moved] = rand.(NODE[LOCATION[moved]])
+        # moved = ID_staged[rand(n_staged) .< ε]
+        # LOCATION[moved] = rand.(NODE[LOCATION[moved]])
         # G[moved] .+= reward_micro
         # print(mean(G))
 
-        NODE_I = setdiff(unique(LOCATION[bit_macro_I]), 0)
+        # NODE_I = setdiff(unique(LOCATION[bit_macro_I]), 0)
+        NODE_I = unique(LOCATION[bit_macro_I])
+        NODE_I = NODE_I[NODE_I .> 0]
         if length(NODE_I) ≥ 40
             @threads for node in NODE_I
                 bit_node = (LOCATION .== node)
@@ -212,33 +216,46 @@ campaign_flag = false
     end
 end
 
-# if visualization
-# plot_score = plot(PERSONAL_, label = "personal", color= :blue,
-#  size = (600, 200), dpi = 300, legend=:bottomleft)
-#  plot!(VALUE_, label = "value", color= :orange)
-# #  ylims!(0,100)
-# savefig(plot_score, "plot_score.png")
+if R_[end] > 1000
+    # if visualization
+    # plot_score = plot(PERSONAL_, label = "personal", color= :blue,
+    #  size = (600, 200), dpi = 300, legend=:bottomleft)
+    #  plot!(VALUE_, label = "value", color= :orange)
+    # #  ylims!(0,100)
+    # savefig(plot_score, "plot_score.png")
 
-plot_policy = plot(Ag_, label = "Ag", color= :red,
- size = (600, 200), dpi = 300, legend=:right)
- plot!(Pr_, label = "Pr", color= :blue)
-savefig(plot_policy, "plot_policy.png")
+    plot_policy = plot(Ag_, label = "Ag", color= :red,
+    size = (600, 200), dpi = 300, legend=:right)
+    plot!(Pr_, label = "Pr", color= :blue)
+    savefig(plot_policy, "$seed_number plot_policy.png")
 
-# plot_delta = plot(δ_, color= :orange, linestyle = :dash,
-#  size = (400, 300), dpi = 300, legend=:none)
-#  xlabel!("T"); ylabel!("δ")
-# savefig(plot_delta, "plot_delta.png")
+    # plot_delta = plot(δ_, color= :orange, linestyle = :dash,
+    #  size = (400, 300), dpi = 300, legend=:none)
+    #  xlabel!("T"); ylabel!("δ")
+    # savefig(plot_delta, "plot_delta.png")
 
-plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
- size = (400, 300), dpi = 300, legend=:topright)
- xlabel!("T"); ylabel!("#")
-savefig(plot_EI, "plot_daily.png")
+    plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
+    size = (400, 300), dpi = 300, legend=:topright)
+    xlabel!("T"); ylabel!("#")
+    savefig(plot_EI, "$seed_number plot_daily.png")
 
-plot_R = plot(R_, label = "R", color= :black,
- size = (400, 300), dpi = 300, legend=:topleft)
- xlabel!("T"); ylabel!("#")
-savefig(plot_R, "plot_R.png")
+    plot_R = plot(R_, label = "R", color= :black,
+    size = (400, 300), dpi = 300, legend=:topleft)
+    xlabel!("T"); ylabel!("#")
+    savefig(plot_R, "$seed_number plot_R.png")
 
-time_evolution = DataFrame(hcat(S_, E_, I_, R_, daily_), ["S", "E", "I", "R", "daily"])
+    push!(ensemble, R_[end])
+    time_evolution = DataFrame(hcat(S_, E_, I_, R_, daily_), ["S", "E", "I", "R", "daily"])
+    CSV.write("$seed_number time_evolution.csv", time_evolution)
+end
 
-CSV.write("time_evolution.csv", time_evolution)
+autosave = open("0 autosave.csv", "a")
+try
+    println(autosave, Dates.now(), ", $seed_number, $(R_[end])")
+finally
+    close(autosave)
+end
+
+end
+
+CSV.write("0 summary.csv", DataFrame(hcat(SEED, ensemble), ["seed", "R"]))
