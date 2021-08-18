@@ -4,10 +4,11 @@
 @time using Base.Threads
 @time using Dates
 @time using NearestNeighbors
-@time using LinearAlgebra
 @time using LightGraphs
+@time using LinearAlgebra
 @time using Distributions
 @time using Plots
+@time using CUDA
 @time using CSV, DataFrames
 
 test = true
@@ -16,14 +17,18 @@ visualization = false
 # ------------------------------------------------------------------
 
 # parameters
-n = 5*10^7 # number of agent
+n = 100000
+# n = 5*10^7 # number of agent
 N = n ÷ 1000 # number of stage network
 m = 3 # number of network link
 ID = 1:n
 number_of_host = 10
 
-β = 0.01 # infection rate
+β = 0.005 # infection rate
 ε = 0.05
+
+θ = 550
+δ = 450
 
 brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
@@ -76,7 +81,7 @@ T = 0 # Macro timestep
 # @profview while sum(state .== 'E') + sum(state .== 'I') > 0
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1
-    if T > 2000 break end
+    if T > 1000 break end
 
     INCUBATION .-= 1
     RECOVERY .-= 1
@@ -99,10 +104,10 @@ T = 0 # Macro timestep
     push!(daily_, sum(INCUBATION .== 0))
 
     # G = G .+ reward_day
-    if campaign_flag && (n_I < 100)
+    if campaign_flag && (n_I < θ - δ)
         campaign_flag = false
     end
-    if n_I > 1000
+    if n_I > θ + δ
         campaign_flag = true
     end
     
@@ -112,7 +117,7 @@ T = 0 # Macro timestep
     transition = rand(n)
     policy[bit_P .& (transition .< 0.05)] .= 'A'
     if campaign_flag
-        policy[bit_A .& (transition .< 0.2)] .= 'P'
+        policy[bit_A .& (transition .< 0.1)] .= 'P'
     else
         policy[bit_A .& (transition .< 0.05)] .= 'P'
     end
@@ -158,26 +163,19 @@ T = 0 # Macro timestep
         println("$T-Staged: $n_staged |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
     end
 
-    for t in 1:8
-        bit_macro_S = (bit_staged .& bit_S)
-        bit_macro_I = (bit_staged .& bit_I)
+    bit_macro_S = (bit_staged .& bit_S)
+    bit_macro_I = (bit_staged .& bit_I)
+    NODE_I = unique(LOCATION[bit_macro_I])
+    NODE_I = NODE_I[NODE_I .> 0]
+    if length(NODE_I) ≥ 40
+        @threads for node in NODE_I
+            bit_node = (LOCATION .== node)
+            bit_micro_S = bit_node .& bit_macro_S
+            bit_micro_I = bit_node .& bit_macro_I
 
-        # moved = ID_staged[rand(n_staged) .< ε]
-        # LOCATION[moved] = rand.(NODE[LOCATION[moved]])
-        # G[moved] .+= reward_micro
-        # print(mean(G))
-
-        # NODE_I = setdiff(unique(LOCATION[bit_macro_I]), 0)
-        NODE_I = unique(LOCATION[bit_macro_I])
-        NODE_I = NODE_I[NODE_I .> 0]
-        if length(NODE_I) ≥ 40
-            @threads for node in NODE_I
-                bit_node = (LOCATION .== node)
-                bit_micro_S = bit_node .& bit_macro_S
-                bit_micro_I = bit_node .& bit_macro_I
-                ID_S = ID[bit_micro_S]
-                ID_I = ID[bit_micro_I]
-
+            ID_S = ID[bit_micro_S]
+            ID_I = ID[bit_micro_I]
+            for t in 1:4
                 location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, sum(bit_micro_S)), 1.0)
                 location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, sum(bit_micro_I)), 1.0)
 
@@ -191,14 +189,16 @@ T = 0 # Macro timestep
                 INCUBATION[ID_infected] .= round.(rand(incubation_period, sum(bit_infected)))
                 RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, sum(bit_infected)))
             end
-        else
-            for node in NODE_I
-                bit_node = (LOCATION .== node)
-                bit_micro_S = bit_node .& bit_macro_S
-                bit_micro_I = bit_node .& bit_macro_I
-                ID_S = ID[bit_micro_S]
-                ID_I = ID[bit_micro_I]
+        end
+    else
+        for node in NODE_I
+            bit_node = (LOCATION .== node)
+            bit_micro_S = bit_node .& bit_macro_S
+            bit_micro_I = bit_node .& bit_macro_I
 
+            ID_S = ID[bit_micro_S]
+            ID_I = ID[bit_micro_I]
+            for t in 1:4
                 location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, sum(bit_micro_S)), 1.0)
                 location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, sum(bit_micro_I)), 1.0)
 
@@ -258,4 +258,8 @@ end
 
 end
 
-CSV.write("0 summary.csv", DataFrame(hcat(SEED, ensemble), ["seed", "R"]))
+try
+    CSV.write("0 summary.csv", DataFrame(hcat(SEED, ensemble), ["seed", "R"]))
+catch
+    print("no meaninful result!")
+end
