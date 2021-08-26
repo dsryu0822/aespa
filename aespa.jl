@@ -1,51 +1,42 @@
 # @time using Profile
-@time using Statistics
 @time using Random
 @time using Base.Threads
 @time using Dates
 @time using NearestNeighbors
 @time using LightGraphs
 @time using LinearAlgebra
-@time using Distributions
+@time using Distributions, Statistics
 @time using Plots
-@time using CUDA
+# @time using CUDA
 @time using CSV, DataFrames
 
 test = true
 visualization = false
+directory = "D:/trash/"
 
 # ------------------------------------------------------------------
 
 # parameters
-n = 100000
+n = 100_000
 # n = 5*10^7 # number of agent
 N = n ÷ 1000 # number of stage network
 m = 3 # number of network link
 ID = 1:n
-number_of_host = 10
+number_of_host = 1
+end_time = 1000
 
-β = 0.005 # infection rate
+β = 0.003 # infection rate
 ε = 0.05
-
-θ = 550
-δ = 450
 
 brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 recovery_period = Weibull(3, 7.17)
-
-# ------------------------------------------------------------------
-
-
-# PUBLIC = 50 # Public score
-
-# reward_day = -10
-# reward_macro = 15
-# reward_micro = 1
+mean(Weibull(3, 7.17))
+std(Weibull(3, 7.17))
 
 # ------------------------------------------------------------------
 # Random Setting
-SEED = 1:1
+SEED = 1:50
 ensemble = Int64[]
 for seed_number ∈ SEED
 println(seed_number)
@@ -56,38 +47,40 @@ E_ = Array{Int64, 1}()
 I_ = Array{Int64, 1}()
 R_ = Array{Int64, 1}()
 daily_ = Array{Int64, 1}()
-
-Ag_ = Array{Int64, 1}()
-Pr_ = Array{Int64, 1}()
-# Random Vector
-# θ = rand(1:100, n)
-# G = rand(1:100, n)
+NODE_I_ = zeros(Int64, end_time, N)
+entropy_ = zeros(Float64, end_time)
+n_NODE_ = zeros(Int64, end_time, N)
+n_NODE_I_ = zeros(Int64, end_time)
+n_NODE_total_ = zeros(Int64, end_time)
 
 INCUBATION = zeros(Int64, n) .- 1
 RECOVERY = zeros(Int64, n) .- 1
 
 NODE = barabasi_albert(N, m).fadjlist
+# histogram(degree(watts_strogatz(n, 4, 0.5)))
 
-policy = rand(['A', 'P'], n) # 'A': Aggressive, 'P': Protective, 'R': Removed
 state = Array{Char, 1}(undef, n); state .= 'S' # using SEIR model
 host = rand(ID, number_of_host); state[host] .= 'I'
 RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
-    
-LOCATION = rand(0:N, n) # macro location
-location = rand(2, n) # micro location
 
-campaign_flag = false
+location = rand(2, n) # micro location
+LOCATION = rand(1:N, n) # macro location
+for _ in 1:10
+    LOCATION = rand.(NODE[LOCATION])
+end
+
 T = 0 # Macro timestep
 # @profview while sum(state .== 'E') + sum(state .== 'I') > 0
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1
-    if T > 1000 break end
+    if T > end_time break end
 
     INCUBATION .-= 1
     RECOVERY .-= 1
-    state[INCUBATION .== 0] .= 'I'
-    bit_RECOVERY = (RECOVERY .== 0)
-    state[bit_RECOVERY] .= 'R'
+    bit_INCUBATION = (INCUBATION .== 0)
+    bit_RECOVERY   = (RECOVERY   .== 0)
+    state[bit_INCUBATION] .= 'I'
+    state[bit_RECOVERY  ] .= 'R'
     # G[bit_RECOVERY] .= 0
 
     bit_S = (state .== 'S')
@@ -101,88 +94,34 @@ T = 0 # Macro timestep
     push!(E_, sum(bit_E))
     push!(I_, n_I)
     push!(R_, n_R)
-    push!(daily_, sum(INCUBATION .== 0))
-
-    # G = G .+ reward_day
-    if campaign_flag && (n_I < θ - δ)
-        campaign_flag = false
-    end
-    if n_I > θ + δ
-        campaign_flag = true
-    end
-    
-    bit_A = (policy .== 'A')
-    bit_P = (policy .== 'P')
-    
-    transition = rand(n)
-    policy[bit_P .& (transition .< 0.05)] .= 'A'
-    if campaign_flag
-        policy[bit_A .& (transition .< 0.1)] .= 'P'
-    else
-        policy[bit_A .& (transition .< 0.05)] .= 'P'
-    end
-
-    bit_R = (state .== 'R')
-    policy[bit_R] .= 'P'
-    bit_A = (policy .== 'A')
-    bit_P = (policy .== 'P')
-    # if campaign_flag
-    #     campaign = 5*log(n_I)
-    # else
-    #     campaign = 0
-    # end
-    # # println(campaign)
-    # δ = G .+ campaign
-    # δ = G .+ 20(n_I > 1000)
-    
-    # policy .= 'P'
-    # policy[δ .< θ] .= 'A'
-
-    for id in ID[bit_A]
-        if LOCATION[id] > 0
-            if rand() < ε
-                LOCATION[id] = rand(NODE[LOCATION[id]])
-            end
-        else
-            LOCATION[id] *= -1
-        end
-        # G[id] += reward_macro
-    end
-    LOCATION[bit_P] = -abs.(LOCATION[bit_P])
-
-    bit_staged = (LOCATION .> 0)
-    ID_staged = ID[bit_staged]
-    n_staged = length(ID_staged)
-
-    # push!(Re_, sum(policy1))
-    # push!(δ_, mean(δ))
-    push!(Ag_, sum(bit_A))
-    push!(Pr_, sum(bit_P))
+    push!(daily_, sum(bit_INCUBATION))
 
     if T > 0
-        println("$T-Staged: $n_staged |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
+        println("$T: |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
     end
 
-    bit_macro_S = (bit_staged .& bit_S)
-    bit_macro_I = (bit_staged .& bit_I)
-    NODE_I = unique(LOCATION[bit_macro_I])
-    NODE_I = NODE_I[NODE_I .> 0]
-    if length(NODE_I) ≥ 40
+    moved = (rand(n) .< ε)
+    LOCATION[moved] = rand.(NODE[LOCATION[moved]])
+
+    NODE_I = unique(LOCATION[bit_I])
+    n_NODE_I_[T] = length(NODE_I)
+    if n_NODE_I_[T] ≥ 40
         @threads for node in NODE_I
             bit_node = (LOCATION .== node)
-            bit_micro_S = bit_node .& bit_macro_S
-            bit_micro_I = bit_node .& bit_macro_I
+            bit_micro_S = bit_node .& bit_S
+            bit_micro_I = bit_node .& bit_I
 
-            ID_S = ID[bit_micro_S]
-            ID_I = ID[bit_micro_I]
+            ID_S = ID[bit_micro_S]; num_micro_S = sum(bit_micro_S)
+            ID_I = ID[bit_micro_I]; num_micro_I = sum(bit_micro_I)
+            NODE_I_[T, node] = num_micro_I
             for t in 1:4
-                location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, sum(bit_micro_S)), 1.0)
-                location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, sum(bit_micro_I)), 1.0)
+                location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, num_micro_S), 1.0)
+                location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, num_micro_I), 1.0)
 
                 kdtreeI = KDTree(location[:,ID_I])
                 contact = length.(inrange(kdtreeI, location[:,ID_S], ε))
 
-                bit_infected = rand(sum(bit_micro_S)) .< (1 .- (1 - β).^contact)
+                bit_infected = rand(num_micro_S) .< (1 .- (1 - β).^contact)
                 ID_infected = ID_S[bit_infected]
                 
                 state[ID_infected] .= 'E'
@@ -193,19 +132,20 @@ T = 0 # Macro timestep
     else
         for node in NODE_I
             bit_node = (LOCATION .== node)
-            bit_micro_S = bit_node .& bit_macro_S
-            bit_micro_I = bit_node .& bit_macro_I
+            bit_micro_S = bit_node .& bit_S
+            bit_micro_I = bit_node .& bit_I
 
-            ID_S = ID[bit_micro_S]
-            ID_I = ID[bit_micro_I]
+            ID_S = ID[bit_micro_S]; num_micro_S = sum(bit_micro_S)
+            ID_I = ID[bit_micro_I]; num_micro_I = sum(bit_micro_I)
+            NODE_I_[T, node] = num_micro_I
             for t in 1:4
-                location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, sum(bit_micro_S)), 1.0)
-                location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, sum(bit_micro_I)), 1.0)
+                location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, num_micro_S), 1.0)
+                location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, num_micro_I), 1.0)
 
                 kdtreeI = KDTree(location[:,ID_I])
                 contact = length.(inrange(kdtreeI, location[:,ID_S], ε))
 
-                bit_infected = rand(sum(bit_micro_S)) .< (1 .- (1 - β).^contact)
+                bit_infected = rand(num_micro_S) .< (1 .- (1 - β).^contact)
                 ID_infected = ID_S[bit_infected]
                 
                 state[ID_infected] .= 'E'
@@ -214,52 +154,47 @@ T = 0 # Macro timestep
             end
         end
     end
+    entropy_[T] = entropy(NODE_I_[T, :] ./ n_I, sum(NODE_I_[T, :] .!= 0))
 end
 
 if R_[end] > 1000
-    # if visualization
-    # plot_score = plot(PERSONAL_, label = "personal", color= :blue,
-    #  size = (600, 200), dpi = 300, legend=:bottomleft)
-    #  plot!(VALUE_, label = "value", color= :orange)
-    # #  ylims!(0,100)
-    # savefig(plot_score, "plot_score.png")
+    # plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
+    # size = (400, 300), dpi = 300, legend=:topright)
+    # xlabel!("T"); ylabel!("#")
+    # savefig(plot_EI, "$seed_number plot_daily.png")
 
-    plot_policy = plot(Ag_, label = "Ag", color= :red,
-    size = (600, 200), dpi = 300, legend=:right)
-    plot!(Pr_, label = "Pr", color= :blue)
-    savefig(plot_policy, "$seed_number plot_policy.png")
-
-    # plot_delta = plot(δ_, color= :orange, linestyle = :dash,
-    #  size = (400, 300), dpi = 300, legend=:none)
-    #  xlabel!("T"); ylabel!("δ")
-    # savefig(plot_delta, "plot_delta.png")
-
-    plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
-    size = (400, 300), dpi = 300, legend=:topright)
-    xlabel!("T"); ylabel!("#")
-    savefig(plot_EI, "$seed_number plot_daily.png")
-
-    plot_R = plot(R_, label = "R", color= :black,
-    size = (400, 300), dpi = 300, legend=:topleft)
-    xlabel!("T"); ylabel!("#")
-    savefig(plot_R, "$seed_number plot_R.png")
+    # plot_R = plot(R_, label = "R", color= :black,
+    # size = (400, 300), dpi = 300, legend=:topleft)
+    # xlabel!("T"); ylabel!("#")
+    # savefig(plot_R, "$seed_number plot_R.png")
 
     push!(ensemble, R_[end])
     time_evolution = DataFrame(hcat(S_, E_, I_, R_, daily_), ["S", "E", "I", "R", "daily"])
-    CSV.write("$seed_number time_evolution.csv", time_evolution)
+    time_evolution_nodewise = DataFrame(NODE_I_)
+    CSV.write(directory * "$seed_number time_evolution.csv", time_evolution)
+    CSV.write(directory * "$seed_number time_evolution_nodewise.csv", time_evolution_nodewise)
+    corrupt = vec(sum(NODE_I_,dims=1))
+    corrupt_value = corrupt[corrupt .> 0]
+    plot(NODE_I_[1:1000,corrupt .> 0], label = "") #, color = :red, linealpha = corrupt_value/maximum(corrupt_value))
+    png(directory * "$seed_number time_evolution_nodewise.png")
+    plot(entropy_[1:1000], label = "entropy", ylims = (-0.2,1.2)) #, color = :red, linealpha = corrupt_value/maximum(corrupt_value))
+    png(directory * "$seed_number time_evolution_entropy.png")
+    plot(n_NODE_I_[1:1000], label = "I in nodes")
+    png(directory * "$seed_number I in nodes.png")
 end
 
-autosave = open("0 autosave.csv", "a")
+autosave = open(directory * "0 autosave.csv", "a")
 try
     println(autosave, Dates.now(), ", $seed_number, $(R_[end])")
 finally
     close(autosave)
 end
 
+
 end
 
 try
-    CSV.write("0 summary.csv", DataFrame(hcat(SEED, ensemble), ["seed", "R"]))
+    CSV.write(directory * "0 summary.csv", DataFrame(hcat(SEED, ensemble), ["seed", "R"]))
 catch
     print("no meaninful result!")
 end
