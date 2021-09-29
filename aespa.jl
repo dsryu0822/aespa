@@ -4,10 +4,17 @@
 @time using LightGraphs
 @time using Random, Distributions, Statistics
 @time using CSV, DataFrames
-@time using Plots
+# @time using Plots; visualization = true
 
-visualization = false
 directory = "D:/trash/"
+
+function deep_pop!(array)
+    if isempty(array)
+        return 0
+    else
+        return pop!(array)
+    end 
+end
 
 # ------------------------------------------------------------------ parameters
 const n = 100_000
@@ -17,16 +24,17 @@ const m = 3 # number of network link
 const number_of_host = 1
 const end_time = 100
 
-const β = 0.02
-const δ = σ = 0.01
+const β = 0.001
+const δ = σ = 0.05
 
 brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------ Random Setting
-SEED = 1:10
+SEED = 1:6
 ensemble = Int64[]
+# seed_number = 0
 for seed_number ∈ SEED
 Random.seed!(seed_number); println(seed_number)
 NODE = barabasi_albert(N, m).fadjlist
@@ -57,21 +65,25 @@ for _ in 1:5
 end
 
 localtrajectory = DataFrame(
-    agent_id = lpad(host[1],5,'0'),
-    node_id = LOCATION[host],
     T = 0,
     t = 0,
+    agent_id = lpad(host[1],5,'0'),
+    node_id = LOCATION[host],
     x = coordinate[1, host],
     y = coordinate[2, host],
     num_to = 0
     )
 R₀_table = DataFrame(
-    degree = 0,
-    node_id = 0,
     T = 0,
-    I0 = 0,
-    I1 = 0
+    t = 0,
+    node_id = 0,
+    degree = 0,
+    from = 0,
+    to = 0
 )
+delete!(localtrajectory, 1)
+delete!(R₀_table, 1)
+
 
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
@@ -104,26 +116,41 @@ R₀_table = DataFrame(
         ID_S = ID[bit_micro_S]; n_micro_S = count(bit_micro_S)
         ID_I = ID[bit_micro_I]; n_micro_I = count(bit_micro_I)
         NODE_I_[T, node] = n_micro_I
+
         bit_infected = zeros(Bool,n_micro_S)
+        ID_infected = zeros(Int64,n_micro_S)
+        in_δ = zeros(Int64,n_micro_S)
+        n_infected = 0
         for t in 1:24
             coordinate[:,ID_S] = mod.(coordinate[:,ID_S] + rand(brownian, n_micro_S), 1.0)
             coordinate[:,ID_I] = mod.(coordinate[:,ID_I] + rand(brownian, n_micro_I), 1.0)
             
             kdtreeI = KDTree(coordinate[:,ID_I])
-            contact = length.(inrange(kdtreeI, coordinate[:,ID_S], δ))
+            in_δ = inrange(kdtreeI, coordinate[:,ID_S], δ)
+            contact = length.(in_δ)
+            bit_infected =  (rand(n_micro_S) .< (1 .- (1 - β).^contact))
+            # bit_infected =  bit_infected .| (rand(n_micro_S) .< (1 .- (1 - β).^contact))
+            # if length(ID_I) == 1
+            #     one = ID_I[1]
+            #     push!(localtrajectory,[lpad(one,5,'0'), LOCATION[one], T, t, coordinate[1, one], coordinate[2, one], count(bit_infected)])
+            # end
+            ID_infected = ID_S[bit_infected]
             
-            bit_infected =  bit_infected .| (rand(n_micro_S) .< (1 .- (1 - β).^contact))
-            if length(ID_I) == 1
-                one = ID_I[1]
-                push!(localtrajectory,[lpad(one,5,'0'), LOCATION[one], T, t, coordinate[1, one], coordinate[2, one], count(bit_infected)])
+            n_infected = count(bit_infected)
+            if n_infected > 0
+                append!(R₀_table, DataFrame(
+                    T = T,
+                    t = t,
+                    node_id = node,
+                    degree = length(NODE[node]),
+                    from = ID_I[deep_pop!.(shuffle.(in_δ))[bit_infected]],
+                    to = ID_infected
+                    ))
             end
+            state[ID_infected] .= 'E'
+            INCUBATION[ID_infected] .= round.(rand(incubation_period, n_infected))
+            RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, n_infected))
         end
-        push!(R₀_table, [length(NODE[node]), node, T, n_micro_I, count(bit_infected)])
-
-        ID_infected = ID_S[bit_infected]
-        state[ID_infected] .= 'E'
-        INCUBATION[ID_infected] .= round.(rand(incubation_period, count(bit_infected)))
-        RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, count(bit_infected)))
     end
 end
 
@@ -133,27 +160,36 @@ if R_[end] > 1000
     time_evolution_nodewise = DataFrame(NODE_I_, :auto)
     CSV.write(directory * "$seed_number time_evolution.csv", time_evolution)
     CSV.write(directory * "$seed_number time_evolution_nodewise.csv", time_evolution_nodewise)
-    delete!(localtrajectory, 1)
     CSV.write(directory * "$seed_number localtrajectory.csv", localtrajectory)
-    delete!(R₀_table, 1)
+    unique!(R₀_table, :to)
     CSV.write(directory * "$seed_number R0_table.csv", R₀_table)
+    
+    networkinfo = DataFrame(
+        node_id = 1:N,
+        degree = length.(NODE),
+        initial_population = [count(LOCATION .== node) for node in 1:N])
+    CSV.write(directory * "$seed_number networkinfo.csv", networkinfo)
 
-    if visualization
-        plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
-        size = (400, 300), dpi = 300, legend=:topright)
-        xlabel!("T"); ylabel!("#")
-        savefig(plot_EI, "$seed_number plot_daily.png")
+    try
+        if visualization
+            plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
+            size = (400, 300), dpi = 300, legend=:topright)
+            xlabel!("T"); ylabel!("#")
+            savefig(plot_EI, "$seed_number plot_daily.png")
 
-        plot_R = plot(R_, label = "R", color= :black,
-        size = (400, 300), dpi = 300, legend=:topleft)
-        xlabel!("T"); ylabel!("#")
-        savefig(plot_R, "$seed_number plot_R.png")
-        
-        corrupt = vec(sum(NODE_I_,dims=1))
-        corrupt_value = corrupt[corrupt .> 0]
-        plot(NODE_I_[1:1000,corrupt .> 0], label = ""); png(directory * "$seed_number time_evolution_nodewise.png")
-        plot(entropy_[1:1000], label = "entropy", ylims = (-0.2,1.2)); png(directory * "$seed_number time_evolution_entropy.png")
-        plot(n_NODE_I_[1:1000], label = "I in nodes"); png(directory * "$seed_number I in nodes.png")
+            plot_R = plot(R_, label = "R", color= :black,
+            size = (400, 300), dpi = 300, legend=:topleft)
+            xlabel!("T"); ylabel!("#")
+            savefig(plot_R, "$seed_number plot_R.png")
+            
+            corrupt = vec(sum(NODE_I_,dims=1))
+            corrupt_value = corrupt[corrupt .> 0]
+            plot(NODE_I_[1:1000,corrupt .> 0], label = ""); png(directory * "$seed_number time_evolution_nodewise.png")
+            plot(entropy_[1:1000], label = "entropy", ylims = (-0.2,1.2)); png(directory * "$seed_number time_evolution_entropy.png")
+            plot(n_NODE_I_[1:1000], label = "I in nodes"); png(directory * "$seed_number I in nodes.png")
+        end
+    catch LoadError
+        print("Plots.jl not loaded")
     end
 end
 
