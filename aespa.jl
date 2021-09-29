@@ -15,10 +15,10 @@ N = n ÷ 1000 # number of stage network
 ID = 1:n
 const m = 3 # number of network link
 const number_of_host = 1
-const end_time = 1000
+const end_time = 100
 
-const β = 0.003
-const ε = 0.05
+const β = 0.02
+const δ = σ = 0.01
 
 brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
@@ -50,12 +50,29 @@ host = rand(ID, number_of_host); state[host] .= 'I'
 RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
 
 T = 0 # Macro timestep
-
-location = rand(Float16, 2, n) # micro location
+coordinate = rand(Float16, 2, n) # micro location
 LOCATION = rand(1:N, n) # macro location
-for _ in 1:10
+for _ in 1:5
     LOCATION = rand.(NODE[LOCATION])
 end
+
+localtrajectory = DataFrame(
+    agent_id = lpad(host[1],5,'0'),
+    node_id = LOCATION[host],
+    T = 0,
+    t = 0,
+    x = coordinate[1, host],
+    y = coordinate[2, host],
+    num_to = 0
+    )
+R₀_table = DataFrame(
+    degree = 0,
+    node_id = 0,
+    T = 0,
+    I0 = 0,
+    I1 = 0
+)
+
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
 
@@ -75,7 +92,7 @@ end
         println("$T: |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
     end
 
-    moved = (rand(n) .< ε)
+    moved = (rand(n) .< σ)
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
 
     NODE_I = unique(LOCATION[bit_I])
@@ -84,23 +101,29 @@ end
         bit_micro_S = bit_node .& bit_S
         bit_micro_I = bit_node .& bit_I
 
-        ID_S = ID[bit_micro_S]; num_micro_S = sum(bit_micro_S)
-        ID_I = ID[bit_micro_I]; num_micro_I = sum(bit_micro_I)
-        NODE_I_[T, node] = num_micro_I
-        for t in 1:4
-            location[:,ID_S] = mod.(location[:,ID_S] + rand(brownian, num_micro_S), 1.0)
-            location[:,ID_I] = mod.(location[:,ID_I] + rand(brownian, num_micro_I), 1.0)
-
-            kdtreeI = KDTree(location[:,ID_I])
-            contact = length.(inrange(kdtreeI, location[:,ID_S], ε))
-
-            bit_infected = rand(num_micro_S) .< (1 .- (1 - β).^contact)
-            ID_infected = ID_S[bit_infected]
+        ID_S = ID[bit_micro_S]; n_micro_S = count(bit_micro_S)
+        ID_I = ID[bit_micro_I]; n_micro_I = count(bit_micro_I)
+        NODE_I_[T, node] = n_micro_I
+        bit_infected = zeros(Bool,n_micro_S)
+        for t in 1:24
+            coordinate[:,ID_S] = mod.(coordinate[:,ID_S] + rand(brownian, n_micro_S), 1.0)
+            coordinate[:,ID_I] = mod.(coordinate[:,ID_I] + rand(brownian, n_micro_I), 1.0)
             
-            state[ID_infected] .= 'E'
-            INCUBATION[ID_infected] .= round.(rand(incubation_period, sum(bit_infected)))
-            RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, sum(bit_infected)))
+            kdtreeI = KDTree(coordinate[:,ID_I])
+            contact = length.(inrange(kdtreeI, coordinate[:,ID_S], δ))
+            
+            bit_infected =  bit_infected .| (rand(n_micro_S) .< (1 .- (1 - β).^contact))
+            if length(ID_I) == 1
+                one = ID_I[1]
+                push!(localtrajectory,[lpad(one,5,'0'), LOCATION[one], T, t, coordinate[1, one], coordinate[2, one], count(bit_infected)])
+            end
         end
+        push!(R₀_table, [length(NODE[node]), node, T, n_micro_I, count(bit_infected)])
+
+        ID_infected = ID_S[bit_infected]
+        state[ID_infected] .= 'E'
+        INCUBATION[ID_infected] .= round.(rand(incubation_period, count(bit_infected)))
+        RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, count(bit_infected)))
     end
 end
 
@@ -110,6 +133,10 @@ if R_[end] > 1000
     time_evolution_nodewise = DataFrame(NODE_I_, :auto)
     CSV.write(directory * "$seed_number time_evolution.csv", time_evolution)
     CSV.write(directory * "$seed_number time_evolution_nodewise.csv", time_evolution_nodewise)
+    delete!(localtrajectory, 1)
+    CSV.write(directory * "$seed_number localtrajectory.csv", localtrajectory)
+    delete!(R₀_table, 1)
+    CSV.write(directory * "$seed_number R0_table.csv", R₀_table)
 
     if visualization
         plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
