@@ -25,9 +25,10 @@ const number_of_host = 1
 const end_time = 100
 
 const β = 0.001
-const B = 10 # vaccinated agents are infected with probability β/B
-const δ = 0.05
-const σ = 0.05
+const B = 10 # Breaktrough parameter. Vaccinated agents are infected with probability β/B.
+const vaccin_supply = 0.01 # probability of vaccination
+const δ = 0.05 # contact radius
+const σ = 0.05 # mobility
 
 brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
@@ -85,11 +86,10 @@ R₀_table = DataFrame(
     x = Float16[],
     y = Float16[],
     from = Int64[],
-    to = Int64[]
+    to = Int64[],
+    Break = Int64[]
 )
 delete!(localtrajectory, 1)
-# delete!(R₀_table, 1)
-
 
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
@@ -105,10 +105,15 @@ delete!(localtrajectory, 1)
     bit_E = (state .== 'E'); n_E = count(bit_E); push!(E_, n_E)
     bit_I = (state .== 'I'); n_I = count(bit_I); push!(I_, n_I)
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(R_, n_R)
-    bit_V = (state .== 'R'); n_V = count(bit_V); push!(R_, n_V)
+    bit_V = (state .== 'V'); n_V = count(bit_V); push!(V_, n_V)
+
+    if n_R > 100
+        # println(typeof((rand(n) .< vaccin_supply)))
+        state[bit_S .& (rand(n) .< vaccin_supply)] .= 'V'
+    end
 
     if T > 0
-        println("$T: |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T])")
+        println("$T: |E: $(E_[T]) |I: $(I_[T]) |R:$(R_[T]) |V:$(V_[T])")
     end
 
     moved = (rand(n) .< σ)
@@ -139,10 +144,9 @@ delete!(localtrajectory, 1)
             coordinate[:,ID_E] = mod.(coordinate[:,ID_E] + rand(brownian, n_micro_E), 1.0)
             coordinate[:,ID_I] = mod.(coordinate[:,ID_I] + rand(brownian, n_micro_I), 1.0)
             coordinate[:,ID_V] = mod.(coordinate[:,ID_V] + rand(brownian, n_micro_V), 1.0)
-            
             kdtreeI = KDTree(coordinate[:,ID_I])
 
-            ## transmission I to S
+            if n_micro_S > 0 # transmission I to S
             in_δ = inrange(kdtreeI, coordinate[:,ID_S], δ)
             contact = length.(in_δ)
             bit_infected =  (rand(n_micro_S) .< (1 .- (1 - β).^contact))
@@ -159,12 +163,40 @@ delete!(localtrajectory, 1)
                     x = coordinate[1,from_id],
                     y = coordinate[2,from_id],
                     from = from_id,
-                    to = ID_infected
+                    to = ID_infected,
+                    Break = 0
                     ))
             end
             state[ID_infected] .= 'E'
             INCUBATION[ID_infected] .= round.(rand(incubation_period, n_infected))
             RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, n_infected))
+            end
+
+            if n_micro_V > 0 # transmission I to V
+            in_δ = inrange(kdtreeI, coordinate[:,ID_V], δ)
+            contact = length.(in_δ)
+            bit_infected =  (rand(n_micro_V) .< (1 .- (1 - β/B).^contact))
+            ID_infected = ID_V[bit_infected]
+            
+            n_infected = count(bit_infected)
+            if n_infected > 0
+                from_id = ID_I[deep_pop!.(shuffle.(in_δ))[bit_infected]]
+                append!(R₀_table, DataFrame(
+                    T = T,
+                    t = t,
+                    node_id = node,
+                    # degree = length(NODE[node]),
+                    x = coordinate[1,from_id],
+                    y = coordinate[2,from_id],
+                    from = from_id,
+                    to = ID_infected,
+                    Break = 1
+                    ))
+            end
+            state[ID_infected] .= 'E'
+            INCUBATION[ID_infected] .= round.(rand(incubation_period, n_infected))
+            RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, n_infected))
+            end
         end
     end
 end
@@ -172,7 +204,7 @@ end
 if R_[end] > 1000
     push!(ensemble, R_[end])
     time_evolution = DataFrame(hcat(S_, E_, I_, R_, V_), ["S", "E", "I", "R", "V"])
-    time_evolution_nodewise = DataFrame(NODE_I_)
+    time_evolution_nodewise = DataFrame(NODE_I_, :auto)
     CSV.write(directory * "$seed_number time_evolution.csv", time_evolution)
     CSV.write(directory * "$seed_number time_evolution_nodewise.csv", time_evolution_nodewise)
     # CSV.write(directory * "$seed_number localtrajectory.csv", localtrajectory)
