@@ -1,12 +1,11 @@
 # @time using Base.Threads
 @time using Dates
 @time using NearestNeighbors
-@time using LightGraphs
+@time using Graphs
 @time using Random, Distributions, Statistics
 @time using CSV, DataFrames
 # @time using Plots; visualization = true
-
-directory = "D:/trash/"
+ansillary_export = false
 
 function deep_pop!(array)
     if isempty(array)
@@ -16,8 +15,20 @@ function deep_pop!(array)
     end 
 end
 
+# ------------------------------------------------------------------ switches
+
+vaccin_campaign = true
+network_campaign = true
+
+breakthrough_infection = false
+
+if !isdir("D:/trash/")
+    mkpath("D:/trash/")
+end
+scenario = vaccin_campaign + 2network_campaign
+directory = "D:/trash/scenario" * string(scenario) * " "
 # ------------------------------------------------------------------ parameters
-const n = 1*10^6
+const n = 1*10^5
 N = n ÷ 1000 # number of stage network
 ID = 1:n
 const m = 3 # number of network link
@@ -28,19 +39,20 @@ const β = 0.001
 const B = 10 # Breaktrough parameter. Vaccinated agents are infected with probability β/B.
 const vaccin_supply = 0.01 # probability of vaccination
 const δ = 0.05 # contact radius
-const σ = 0.05 # mobility
+σ = 0.05 # mobility
 
 brownian = MvNormal(2, 0.01) # moving process
 incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------ Random Setting
-SEED = 1:10
+SEED = 10:10
 ensemble = Int64[]
 # seed_number = 0
 for seed_number ∈ SEED
 Random.seed!(seed_number); println(seed_number)
-NODE = barabasi_albert(N, m).fadjlist
+backbone = barabasi_albert(N, m)
+NODE = backbone.fadjlist
 # NODE = erdos_renyi(N, 0.02).fadjlist
 
 S_ = Int64[]
@@ -69,15 +81,16 @@ for _ in 1:5
     LOCATION = rand.(NODE[LOCATION])
 end
 
-localtrajectory = DataFrame(
-    T = 0,
-    t = 0,
-    agent_id = lpad(host[1],5,'0'),
-    node_id = LOCATION[host],
-    x = coordinate[1, host],
-    y = coordinate[2, host],
-    num_to = 0
-    )
+# localtrajectory = DataFrame(
+#     T = 0,
+#     t = 0,
+#     agent_id = lpad(host[1],5,'0'),
+#     node_id = LOCATION[host],
+#     x = coordinate[1, host],
+#     y = coordinate[2, host],
+#     num_to = 0
+#     )
+# delete!(localtrajectory, 1)
 R₀_table = DataFrame(
     T = Int64[],
     t = Int64[],
@@ -89,7 +102,6 @@ R₀_table = DataFrame(
     to = Int64[],
     Break = Int64[]
 )
-delete!(localtrajectory, 1)
 
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
@@ -106,10 +118,25 @@ delete!(localtrajectory, 1)
     bit_I = (state .== 'I'); n_I = count(bit_I); push!(I_, n_I)
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(R_, n_R)
     bit_V = (state .== 'V'); n_V = count(bit_V); push!(V_, n_V)
+    push!(daily_, count(bit_INCUBATION))
 
-    if n_R > 100
+    if n_I > 100
         # println(typeof((rand(n) .< vaccin_supply)))
-        state[bit_S .& (rand(n) .< vaccin_supply)] .= 'V'
+        if vaccin_campaign
+            state[bit_S .& (rand(n) .< vaccin_supply)] .= 'V'
+        end
+
+        if network_campaign
+            σ = 0.01
+        #     u = backbone.fadjlist .|> length |> argmax
+        #     dm = length(backbone.fadjlist[u]) - m
+        #     cutlink = shuffle(backbone.fadjlist[u])[1:dm]
+        #     for v ∈ cutlink
+        #         if length(backbone.fadjlist[v]) > 1
+        #             rem_edge!(backbone, u, v)
+        #         end
+        #     end
+        end
     end
 
     if T > 0
@@ -146,7 +173,7 @@ delete!(localtrajectory, 1)
             coordinate[:,ID_V] = mod.(coordinate[:,ID_V] + rand(brownian, n_micro_V), 1.0)
             kdtreeI = KDTree(coordinate[:,ID_I])
 
-            if n_micro_S > 0 # transmission I to S
+            if (n_micro_S > 0) # transmission I to S
             in_δ = inrange(kdtreeI, coordinate[:,ID_S], δ)
             contact = length.(in_δ)
             bit_infected =  (rand(n_micro_S) .< (1 .- (1 - β).^contact))
@@ -172,7 +199,7 @@ delete!(localtrajectory, 1)
             RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, n_infected))
             end
 
-            if n_micro_V > 0 # transmission I to V
+            if (n_micro_V > 0) & vaccin_campaign # transmission I to V
             in_δ = inrange(kdtreeI, coordinate[:,ID_V], δ)
             contact = length.(in_δ)
             bit_infected =  (rand(n_micro_V) .< (1 .- (1 - β/B).^contact))
@@ -201,43 +228,63 @@ delete!(localtrajectory, 1)
     end
 end
 
-if R_[end] > 1000
+if S_[end] < (n - 1000)
     push!(ensemble, R_[end])
-    time_evolution = DataFrame(hcat(S_, E_, I_, R_, V_), ["S", "E", "I", "R", "V"])
-    time_evolution_nodewise = DataFrame(NODE_I_, :auto)
-    CSV.write(directory * "$seed_number time_evolution.csv", time_evolution)
-    CSV.write(directory * "$seed_number time_evolution_nodewise.csv", time_evolution_nodewise)
-    # CSV.write(directory * "$seed_number localtrajectory.csv", localtrajectory)
+    seed = lpad(seed_number, 4, '0')
+
     unique!(R₀_table, :to)
-    CSV.write(directory * "$seed_number R0_table.csv", R₀_table)
-    
-    networkinfo = DataFrame(
-        node_id = 1:N,
-        degree = length.(NODE),
-        initial_population = [count(LOCATION .== node) for node in 1:N])
-    CSV.write(directory * "$seed_number networkinfo.csv", networkinfo)
+    CSV.write(directory * "$seed essential.csv", R₀_table)
+
+    time_evolution = DataFrame(hcat(S_, E_, I_, R_, V_, daily_), ["S", "E", "I", "R", "V", "daily_"])
+    CSV.write(directory * "$seed time_evolution.csv", time_evolution)
+
+    CSV.write(directory * "$seed info.csv",
+    DataFrame(
+        n = n, 
+        β = β, 
+        B = B, 
+        vaccin_supply = vaccin_supply, 
+        δ = δ, 
+        σ = σ,
+        vaccin_campaign = vaccin_campaign,
+        network_campaign = network_campaign
+    ), bom = true)
+
+    if ansillary_export
+        # time_evolution_nodewise = DataFrame(NODE_I_)
+        # CSV.write(directory * "$seed time_evolution_nodewise.csv", time_evolution_nodewise)
+        # CSV.write(directory * "$seed localtrajectory.csv", localtrajectory)
+        
+        # networkinfo = DataFrame(
+        #     node_id = 1:N,
+        #     degree = length.(NODE),
+        #     initial_population = [count(LOCATION .== node) for node in 1:N])
+        # CSV.write(directory * "$seed networkinfo.csv", networkinfo)
+    end
 
     try
         if visualization
             plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
             size = (400, 300), dpi = 300, legend=:topright)
             xlabel!("T"); ylabel!("#")
-            savefig(plot_EI, "$seed_number plot_daily.png")
+            savefig(plot_EI, "$seed plot_daily.png")
 
             plot_R = plot(R_, label = "R", color= :black,
             size = (400, 300), dpi = 300, legend=:topleft)
             xlabel!("T"); ylabel!("#")
-            savefig(plot_R, "$seed_number plot_R.png")
+            savefig(plot_R, "$seed plot_R.png")
             
             corrupt = vec(sum(NODE_I_,dims=1))
             corrupt_value = corrupt[corrupt .> 0]
-            plot(NODE_I_[1:1000,corrupt .> 0], label = ""); png(directory * "$seed_number time_evolution_nodewise.png")
-            plot(entropy_[1:1000], label = "entropy", ylims = (-0.2,1.2)); png(directory * "$seed_number time_evolution_entropy.png")
-            plot(n_NODE_I_[1:1000], label = "I in nodes"); png(directory * "$seed_number I in nodes.png")
+            plot(NODE_I_[1:1000,corrupt .> 0], label = ""); png(directory * "$seed time_evolution_nodewise.png")
+            plot(entropy_[1:1000], label = "entropy", ylims = (-0.2,1.2)); png(directory * "$seed time_evolution_entropy.png")
+            plot(n_NODE_I_[1:1000], label = "I in nodes"); png(directory * "$seed I in nodes.png")
         end
     catch LoadError
         print("Plots.jl not loaded")
     end
+
+    break
 end
 
 # autosave = open(directory * "0 autosave.csv", "a")
