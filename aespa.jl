@@ -17,8 +17,8 @@ end
 
 # ------------------------------------------------------------------ switches
 
-vaccin_campaign = true
-network_campaign = true
+vaccin_campaign = false
+network_campaign = false
 
 breakthrough_infection = false
 
@@ -33,7 +33,7 @@ N = n ÷ 1000 # number of stage network
 ID = 1:n
 const m = 3 # number of network link
 const number_of_host = 1
-const end_time = 100
+const end_time = 200
 
 const β = 0.001
 const B = 10 # Breaktrough parameter. Vaccinated agents are infected with probability β/B.
@@ -91,7 +91,7 @@ end
 #     num_to = 0
 #     )
 # delete!(localtrajectory, 1)
-R₀_table = DataFrame(
+transmission = DataFrame(
     T = Int64[],
     t = Int64[],
     node_id = Int64[],
@@ -102,6 +102,7 @@ R₀_table = DataFrame(
     to = Int64[],
     Break = Int64[]
 )
+non_transmission = copy(transmission)
 
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
@@ -127,7 +128,7 @@ R₀_table = DataFrame(
         end
 
         if network_campaign
-            σ = 0.01
+            σ = 0.005
         #     u = backbone.fadjlist .|> length |> argmax
         #     dm = length(backbone.fadjlist[u]) - m
         #     cutlink = shuffle(backbone.fadjlist[u])[1:dm]
@@ -162,10 +163,6 @@ R₀_table = DataFrame(
 
         NODE_I_[T, node] = n_micro_I
 
-        # bit_infected = zeros(Bool, n_micro_S)
-        # ID_infected = zeros(Int64, n_micro_S)
-        # in_δ = zeros(Int64, n_micro_S)
-        # n_infected = 0
         for t in 1:24
             coordinate[:,ID_S] = mod.(coordinate[:,ID_S] + rand(brownian, n_micro_S), 1.0)
             coordinate[:,ID_E] = mod.(coordinate[:,ID_E] + rand(brownian, n_micro_E), 1.0)
@@ -182,16 +179,10 @@ R₀_table = DataFrame(
             n_infected = count(bit_infected)
             if n_infected > 0
                 from_id = ID_I[deep_pop!.(shuffle.(in_δ))[bit_infected]]
-                append!(R₀_table, DataFrame(
-                    T = T,
-                    t = t,
-                    node_id = node,
-                    # degree = length(NODE[node]),
-                    x = coordinate[1,from_id],
-                    y = coordinate[2,from_id],
-                    from = from_id,
-                    to = ID_infected,
-                    Break = 0
+                append!(transmission, DataFrame(
+                    T = T, t = t, node_id = node,
+                    x = coordinate[1,from_id], y = coordinate[2,from_id],
+                    from = from_id, to = ID_infected, Break = 0
                     ))
             end
             state[ID_infected] .= 'E'
@@ -208,21 +199,25 @@ R₀_table = DataFrame(
             n_infected = count(bit_infected)
             if n_infected > 0
                 from_id = ID_I[deep_pop!.(shuffle.(in_δ))[bit_infected]]
-                append!(R₀_table, DataFrame(
-                    T = T,
-                    t = t,
-                    node_id = node,
-                    # degree = length(NODE[node]),
-                    x = coordinate[1,from_id],
-                    y = coordinate[2,from_id],
-                    from = from_id,
-                    to = ID_infected,
-                    Break = 1
+                append!(transmission, DataFrame(
+                    T = T, t = t, node_id = node,
+                    x = coordinate[1,from_id], y = coordinate[2,from_id],
+                    from = from_id, to = ID_infected, Break = 1
                     ))
             end
             state[ID_infected] .= 'E'
             INCUBATION[ID_infected] .= round.(rand(incubation_period, n_infected))
             RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, n_infected))
+            end
+        end
+
+        infector_list = transmission[transmission.T .== T, :from]
+        for defendant ∈ ID_I
+            if defendant ∉ infector_list
+                append!(non_transmission, DataFrame(
+                    T = T, t = 0, node_id = node, x = 0, y = 0,
+                    from = defendant, to = 0, Break = 0
+                    ))
             end
         end
     end
@@ -232,8 +227,10 @@ if S_[end] < (n - 1000)
     push!(ensemble, R_[end])
     seed = lpad(seed_number, 4, '0')
 
-    unique!(R₀_table, :to)
-    CSV.write(directory * "$seed essential.csv", R₀_table)
+    unique!(transmission, :to)
+    append!(transmission, non_transmission)
+    sort!(transmission, :T)
+    CSV.write(directory * "$seed essential.csv", transmission)
 
     time_evolution = DataFrame(hcat(S_, E_, I_, R_, V_, daily_), ["S", "E", "I", "R", "V", "daily_"])
     CSV.write(directory * "$seed time_evolution.csv", time_evolution)
