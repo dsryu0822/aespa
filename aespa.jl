@@ -1,11 +1,12 @@
 # @time using Base.Threads
-@time using Dates
+# @time using Dates
 @time using NearestNeighbors
 @time using Graphs
 @time using Random, Distributions, Statistics
-@time using CSV, DataFrames
-# @time using Plots; visualization = true
+@time using DataFrames
 ansillary_export = false
+xlsx_export = true
+csv_export = true
 
 function deep_pop!(array)
     if isempty(array)
@@ -17,8 +18,8 @@ end
 
 # ------------------------------------------------------------------ switches
 
-vaccin_campaign = false
-network_campaign = false
+vaccin_campaign = true
+network_campaign = true
 
 breakthrough_infection = false
 
@@ -27,6 +28,7 @@ if !isdir("D:/trash/")
 end
 scenario = vaccin_campaign + 2network_campaign
 directory = "D:/trash/scenario" * string(scenario) * " "
+
 # ------------------------------------------------------------------ parameters
 const n = 1*10^5
 N = n ÷ 1000 # number of stage network
@@ -35,10 +37,10 @@ const m = 3 # number of network link
 const number_of_host = 1
 const end_time = 200
 
-const β = 0.001
+const β = 0.02
 const B = 10 # Breaktrough parameter. Vaccinated agents are infected with probability β/B.
 const vaccin_supply = 0.01 # probability of vaccination
-const δ = 0.05 # contact radius
+const δ = 0.01 # contact radius
 σ = 0.05 # mobility
 
 brownian = MvNormal(2, 0.01) # moving process
@@ -46,7 +48,7 @@ incubation_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles
 recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------ Random Setting
-SEED = 10:10
+SEED = 1:100
 ensemble = Int64[]
 # seed_number = 0
 for seed_number ∈ SEED
@@ -230,56 +232,13 @@ if S_[end] < (n - 1000)
     unique!(transmission, :to)
     append!(transmission, non_transmission)
     sort!(transmission, :T)
-    CSV.write(directory * "$seed essential.csv", transmission)
-
+    
     time_evolution = DataFrame(hcat(S_, E_, I_, R_, V_, daily_), ["S", "E", "I", "R", "V", "daily_"])
+    config = DataFrame(n = n, β = β, B = B, vaccin_supply = vaccin_supply, δ = δ, σ = σ, vaccin_campaign = vaccin_campaign, network_campaign = network_campaign)
+
+    CSV.write(directory * "$seed essential.csv", transmission)
     CSV.write(directory * "$seed time_evolution.csv", time_evolution)
-
-    CSV.write(directory * "$seed info.csv",
-    DataFrame(
-        n = n, 
-        β = β, 
-        B = B, 
-        vaccin_supply = vaccin_supply, 
-        δ = δ, 
-        σ = σ,
-        vaccin_campaign = vaccin_campaign,
-        network_campaign = network_campaign
-    ), bom = true)
-
-    if ansillary_export
-        # time_evolution_nodewise = DataFrame(NODE_I_)
-        # CSV.write(directory * "$seed time_evolution_nodewise.csv", time_evolution_nodewise)
-        # CSV.write(directory * "$seed localtrajectory.csv", localtrajectory)
-        
-        # networkinfo = DataFrame(
-        #     node_id = 1:N,
-        #     degree = length.(NODE),
-        #     initial_population = [count(LOCATION .== node) for node in 1:N])
-        # CSV.write(directory * "$seed networkinfo.csv", networkinfo)
-    end
-
-    try
-        if visualization
-            plot_EI = plot(daily_, label = "daily", color= :orange, linestyle = :solid,
-            size = (400, 300), dpi = 300, legend=:topright)
-            xlabel!("T"); ylabel!("#")
-            savefig(plot_EI, "$seed plot_daily.png")
-
-            plot_R = plot(R_, label = "R", color= :black,
-            size = (400, 300), dpi = 300, legend=:topleft)
-            xlabel!("T"); ylabel!("#")
-            savefig(plot_R, "$seed plot_R.png")
-            
-            corrupt = vec(sum(NODE_I_,dims=1))
-            corrupt_value = corrupt[corrupt .> 0]
-            plot(NODE_I_[1:1000,corrupt .> 0], label = ""); png(directory * "$seed time_evolution_nodewise.png")
-            plot(entropy_[1:1000], label = "entropy", ylims = (-0.2,1.2)); png(directory * "$seed time_evolution_entropy.png")
-            plot(n_NODE_I_[1:1000], label = "I in nodes"); png(directory * "$seed I in nodes.png")
-        end
-    catch LoadError
-        print("Plots.jl not loaded")
-    end
+    CSV.write(directory * "$seed info.csv", config, bom = true)
 
     break
 end
