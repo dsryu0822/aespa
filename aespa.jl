@@ -1,6 +1,7 @@
 # @time using Dates
-@time using Graphs, NearestNeighbors
+@time include("lemma.jl")
 @time using Random, Distributions, Statistics
+@time using Graphs, NearestNeighbors
 @time using DataFrames
 @time using CSV, XLSX
 
@@ -17,14 +18,11 @@ if !isdir("D:/trash/")
     mkpath("D:/trash/M0")
     mkpath("D:/trash/MV")
 end
-moving = false
-vaccin = false
-scenario = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
-directory = "D:/trash/$scenario/"
 
 # ------------------------------------------------------------------ parameters
 
-breakthrough_infection = false
+# Breaktrough parameter. Vaccinated agents are infected with probability β/B.
+breakthrough_infection = false; const B = 10
 
 const n = 1*10^5
 N = n ÷ 1000 # number of stage network
@@ -34,7 +32,6 @@ const number_of_host = 1
 const end_time = 100
 
 const β = 0.02
-const B = 10 # Breaktrough parameter. Vaccinated agents are infected with probability β/B.
 const vaccin_supply = 0.01 # probability of vaccination
 const δ = 0.01 # contact radius
 
@@ -46,49 +43,60 @@ latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC
 recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------ Random Setting
-function simulation(seed_number)
-σ = 0.05 # mobility
-Random.seed!(seed_number); println(seed_number)
+function simulation(
+    seed_number;
+    moving = false,
+    vaccin = false)
 
-n_S_ = Int64[]
-n_E_ = Int64[]
-n_I_ = Int64[]
-n_R_ = Int64[]
-n_V_ = Int64[]
+    scenario = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
+    directory = "D:/trash/$scenario/"
+    σ = 0.05 # mobility
+    Random.seed!(seed_number); println(seed_number)
 
-# daily_ = Int64[]
-# NODE_I_ = zeros(Int64, end_time, N)
+    ######################## Initializaion
 
-INCUBATION = repeat([-1], n)
-RECOVERY = repeat([-1], n)
-state = repeat(['S'], n) # using SEIR model
+    n_S_ = Int64[]
+    n_E_ = Int64[]
+    n_I_ = Int64[]
+    n_R_ = Int64[]
+    n_V_ = Int64[]
+    Rt_ = Float64[]
 
-transmission = DataFrame(
-    T = Int64[],
-    t = Int64[],
-    node_id = Int64[],
-    # x = Float16[],
-    # y = Float16[],
-    from = Int64[],
-    to = Int64[],
-    Break = Int64[]
-)
-non_transmission = copy(transmission)
+    # daily_ = Int64[]
+    # NODE_I_ = zeros(Int64, end_time, N)
 
-T = 0 # Macro timestep
-host = rand(ID, number_of_host); state[host] .= 'I'
-RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
-coordinate = rand(Float16, 2, n) # micro location
-LOCATION = rand(1:N, n) # macro location
+
+    transmission = DataFrame(
+        T = Int64[],
+        t = Int64[],
+        node_id = Int64[],
+        # x = Float16[],
+        # y = Float16[],
+        from = Int64[],
+        to = Int64[],
+        Break = Int64[]
+    )
+    non_transmission = copy(transmission)
+
+    T = 0 # Macro timestep
+    state = repeat(['S'], n) # using SEIR model
+    host = rand(ID, number_of_host); state[host] .= 'I'
+
+    LATENT = repeat([-1], n)
+    RECOVERY = repeat([-1], n)
+    RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
+
+    coordinate = rand(Float16, 2, n) # micro location
+    LOCATION = rand(1:N, n) # macro location
 for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
 
-    INCUBATION .-= 1
+    LATENT .-= 1
     RECOVERY   .-= 1
-    bit_INCUBATION = (INCUBATION .== 0)
+    bit_LATENT = (LATENT .== 0)
     bit_RECOVERY   = (RECOVERY   .== 0)
-    state[bit_INCUBATION] .= 'I'
+    state[bit_LATENT] .= 'I'
     state[bit_RECOVERY  ] .= 'R'
 
     bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S)
@@ -107,7 +115,7 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
         if moving moved = (rand(n) .< σ/10) end
     end    
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
-    
+
     NODE_I = unique(LOCATION[bit_I])
     for node in NODE_I
         bit_node = (LOCATION .== node)
@@ -127,12 +135,12 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
             coordinate[:,ID_E] = mod.(coordinate[:,ID_E] + rand(brownian, n_micro_E), 1.0)
             coordinate[:,ID_I] = mod.(coordinate[:,ID_I] + rand(brownian, n_micro_I), 1.0)
             coordinate[:,ID_V] = mod.(coordinate[:,ID_V] + rand(brownian, n_micro_V), 1.0)
-            kdtreeI = KDTree(coordinate[:,ID_I])
-
             if (n_micro_S == 0) continue end # transmission I to S
+            
+            kdtreeI = KDTree(coordinate[:,ID_I])
             in_δ = inrange(kdtreeI, coordinate[:,ID_S], δ)
             contact = length.(in_δ)
-            bit_infected =  (rand(n_micro_S) .< (1 .- (1 - β).^contact))
+            bit_infected = (rand(n_micro_S) .< (1 .- (1 - β).^contact))
             ID_infected = ID_S[bit_infected]
             
             n_infected = count(bit_infected)
@@ -145,9 +153,10 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
                     ))
             end
             state[ID_infected] .= 'E'
-            INCUBATION[ID_infected] .= round.(rand(latent_period, n_infected))
-            RECOVERY[ID_infected] .= INCUBATION[ID_infected] + round.(rand(recovery_period, n_infected))
+            LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
+            RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
         end
+        unique!(transmission, :to)
 
         infector_list = transmission[transmission.T .== T, :from]
         for defendant ∈ ID_I
@@ -159,35 +168,43 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
             end
         end
     end
+    
+    now_I = ID[state .== 'I']
+    push!(
+        Rt_,
+        isempty(now_I) ? 0 : nrow(transmission[transmission[:,:from] .∈ Ref(now_I),:]) / length(now_I))
 end
 
-if n_S_[end] < (n - 1000)
-    seed = lpad(seed_number, 4, '0')
-    
-    time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_), ["S", "E", "I", "R", "V"])
+    T0 = sufficientN(Rt_ .< 1)
+    # if n_S_[end] < (n - 1000)
+    if true
+        seed = lpad(seed_number, 4, '0')
+        
+        time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_, Rt_), ["S", "E", "I", "R", "V", "Rt"])
+        append!(transmission, non_transmission); sort!(transmission, :T)   
+        config = DataFrame(n = n, β = β, vaccin_supply = vaccin_supply, δ = δ, σ = σ, moving = moving, vaccin = vaccin)
+        summary = DataFrame(T0 = T0, R = n_R_[T0], V = n_V_[T0])
 
-    unique!(transmission, :to)
-    append!(transmission, non_transmission)
-    sort!(transmission, :T)
-    
-    config = DataFrame(n = n, β = β, B = B, vaccin_supply = vaccin_supply, δ = δ, σ = σ, vaccin = vaccin, moving = moving)
-
-    if export_type == :CSV
-        CSV.write(directory * "$seed time_evolution.csv", time_evolution)
-        CSV.write(directory * "$seed essential.csv", transmission)
-        CSV.write(directory * "$seed info.csv", config, bom = true)
-    elseif export_type == :XLSX
-        @time XLSX.writetable(
-            directory * "$seed.xlsx",
-            time_evolution = ( collect(eachcol(time_evolution)), names(time_evolution) ),
-            transmission = ( collect(eachcol(transmission)), names(transmission) ),
-            config = ( collect(eachcol(config)), names(config) )
-        )
+        @time if export_type == :CSV
+            CSV.write(directory * "$seed time_evolution.csv", time_evolution)
+            CSV.write(directory * "$seed transmission.csv", transmission)
+            CSV.write(directory * "$seed config.csv", config, bom = true)
+            CSV.write(directory * "$seed summary.csv", summary, bom = true)
+        elseif export_type == :XLSX
+            XLSX.writetable(
+                directory * "$seed.xlsx",
+                time_evolution = ( collect(eachcol(time_evolution)), names(time_evolution) ),
+                transmission = ( collect(eachcol(transmission)), names(transmission) ),
+                config = ( collect(eachcol(config)), names(config) ),
+                summary = ( collect(eachcol(summary)), names(summary) )
+            )
+        end
     end
 end
 
-end
-
-for seed_number in 1:10
-    simulation(seed_number)
+for seed_number ∈ 1:10
+    simulation(
+    seed_number,
+    moving = true,
+    vaccin = true)
 end

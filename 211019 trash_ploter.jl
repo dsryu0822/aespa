@@ -22,10 +22,10 @@ push!(color_, 3 => :purple)
 
 plot_R = plot(legend = :topleft, xlabel = "T", ylabel = L"\# R")
 plot_I = plot(legend = :topleft, xlabel = "T", ylabel = L"\# I")
-plot_R0 = plot(legend = :topright, xlabel = "T", ylabel = L"R_{0}", ylims = (0,4))
+# plot_R0 = plot(legend = :topright, xlabel = "T", ylabel = L"R_{0}", ylims = (0,4))
 plot_Rt = plot(legend = :topright, xlabel = "T", ylabel = L"R_{t}", ylims = (0,4))
 
-for idx ∈ 0:3
+for idx ∈ 3:-1:0
     push!(te_, idx => CSV.read(directory * "scenario$idx 0010 time_evolution.csv", DataFrame))
     timeevolution(te_[idx], legend = :inline); png(directory * "scenario$idx time_evolution.png")
     plot!(plot_R, te_[idx][:,:R], label = "scenario $idx", color = color_[idx])
@@ -37,14 +37,19 @@ for idx ∈ 0:3
     Rt = Float64[]
     for T0 ∈ 1:nrow(te_[idx])
         temp = es_[idx][es_[idx][:,:T] .≤ T0,:]
-        push!(R0, nrow(temp[temp[:,:to] .> 0, :]) / nrow(unique(temp, :from)))
+        # push!(R0, nrow(temp[temp[:,:to] .> 0, :]) / nrow(unique(temp, :from)))
 
         infected_list = es_[idx][es_[idx][:,:T] .== T0,:from]
         temp2 = temp[temp[:,:from] .∈ Ref(infected_list),:]
-        push!(Rt, nrow(temp2[temp2[:,:to] .> 0, :]) / nrow(unique(temp2, :from)))
+        push!(Rt, count(temp2[:,:to] .> 0) / nrow(unique(temp2, :from)))
     end
-    push!(R0_, idx => R0)
+    # push!(R0_, idx => R0)
+    # plot!(plot_R0, R0_[idx], label = "scenario $idx", color = color_[idx])
     push!(Rt_, idx => Rt)
-    plot!(plot_R0, R0_[idx], label = "scenario $idx", color = color_[idx])
     plot!(plot_Rt, Rt_[idx], label = "scenario $idx", color = color_[idx])
 end
+plot(plot_Rt, xlims = (40,100), ylims = (0,2))
+
+png(plot_I, directory * "0009 I.png")
+png(plot_R, directory * "0009 R.png")
+png(plot_Rt, directory * "0009 Rt.png")
