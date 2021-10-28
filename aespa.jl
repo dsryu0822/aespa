@@ -29,7 +29,7 @@ N = n ÷ 1000 # number of stage network
 ID = 1:n
 const m = 3 # number of network link
 const number_of_host = 1
-const end_time = 100
+const end_time = 200
 
 const β = 0.02
 const vaccin_supply = 0.01 # probability of vaccination
@@ -91,14 +91,14 @@ function simulation(
 for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
-    if T == 57 Random.seed!(seed_number) end
+    if T == 35 Random.seed!(seed_number) end
 
-    LATENT .-= 1
-    RECOVERY   .-= 1
-    bit_LATENT = (LATENT .== 0)
-    bit_RECOVERY   = (RECOVERY   .== 0)
-    state[bit_LATENT] .= 'I'
-    state[bit_RECOVERY  ] .= 'R'
+    LATENT   .-= 1
+    RECOVERY .-= 1
+    bit_LATENT     = (LATENT   .== 0)
+    bit_RECOVERY   = (RECOVERY .== 0)
+    state[bit_LATENT  ] .= 'I'
+    state[bit_RECOVERY] .= 'R'
 
     bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S)
     bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E)
@@ -110,11 +110,11 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
         println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
     end
 
-    moved = (rand(n) .< σ)
     if n_I > 100
         if vaccin state[bit_S .& (rand(n) .< vaccin_supply)] .= 'V' end
-        if moving moved = (rand(n) .< σ/10) end
-    end    
+        if moving σ = 0.005 end
+    end
+    moved = (rand(n) .< σ)
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
 
     NODE_I = unique(LOCATION[bit_I])
