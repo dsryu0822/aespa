@@ -7,6 +7,3 @@ function sufficientN(condition::BitArray)
         return length(condition)
     end
 end
-
-# x = rand(10)
-sufficientN(x .< 0.6)

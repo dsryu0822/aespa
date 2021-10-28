@@ -9,7 +9,7 @@ deep_pop!(array) = isempty(array) ? 0 : pop!(array)
 
 # ------------------------------------------------------------------ switches
 
-export_type = :XLSX
+export_type = :CSV # :both, :CSV, :XLSX
 
 if !isdir("D:/trash/")
     mkpath("D:/trash/")
@@ -51,7 +51,7 @@ function simulation(
     scenario = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
     directory = "D:/trash/$scenario/"
     σ = 0.05 # mobility
-    Random.seed!(seed_number); println(seed_number)
+    Random.seed!(1); println(seed_number)
 
     ######################## Initializaion
 
@@ -91,6 +91,7 @@ function simulation(
 for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
+    if T == 57 Random.seed!(seed_number) end
 
     LATENT .-= 1
     RECOVERY   .-= 1
@@ -185,12 +186,12 @@ end
         config = DataFrame(n = n, β = β, vaccin_supply = vaccin_supply, δ = δ, σ = σ, moving = moving, vaccin = vaccin)
         summary = DataFrame(T0 = T0, R = n_R_[T0], V = n_V_[T0])
 
-        @time if export_type == :CSV
-            CSV.write(directory * "$seed time_evolution.csv", time_evolution)
-            CSV.write(directory * "$seed transmission.csv", transmission)
-            CSV.write(directory * "$seed config.csv", config, bom = true)
-            CSV.write(directory * "$seed summary.csv", summary, bom = true)
-        elseif export_type == :XLSX
+        @time if export_type != :XLSX
+            CSV.write(directory * "$seed tevl.csv", time_evolution)
+            CSV.write(directory * "$seed trms.csv", transmission)
+            CSV.write(directory * "$seed cnfg.csv", config, bom = true)
+            CSV.write(directory * "$seed smry.csv", summary, bom = true)
+        elseif export_type != :CSV
             XLSX.writetable(
                 directory * "$seed.xlsx",
                 time_evolution = ( collect(eachcol(time_evolution)), names(time_evolution) ),
@@ -202,9 +203,11 @@ end
     end
 end
 
-for seed_number ∈ 1:10
-    simulation(
-    seed_number,
-    moving = true,
-    vaccin = true)
+for seed_number ∈ 1:100
+    for v ∈ [true, false], m ∈ [true, false]
+        simulation(
+        seed_number,
+        moving = m,
+        vaccin = v)
+    end
 end
