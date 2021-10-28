@@ -32,7 +32,7 @@ const number_of_host = 1
 const end_time = 200
 
 const β = 0.02
-const vaccin_supply = 0.01 # probability of vaccination
+const vaccin_supply = 0.005 # probability of vaccination
 const δ = 0.01 # contact radius
 
 brownian = MvNormal(2, 0.01) # moving process
@@ -44,14 +44,15 @@ recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------ Random Setting
 function simulation(
+    preed_sumber,
     seed_number;
     moving = false,
     vaccin = false)
 
+    σ = 0.05 # mobility
     scenario = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
     directory = "D:/trash/$scenario/"
-    σ = 0.05 # mobility
-    Random.seed!(1); println(seed_number)
+    Random.seed!(preed_sumber); println(seed_number)
 
     ######################## Initializaion
 
@@ -91,7 +92,7 @@ function simulation(
 for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
-    if T == 35 Random.seed!(seed_number) end
+    if T == 32 Random.seed!(seed_number) end
 
     LATENT   .-= 1
     RECOVERY .-= 1
@@ -110,7 +111,8 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
         println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
     end
 
-    if n_I > 100
+    σ = 0.05 # mobility
+    if n_I > 10
         if vaccin state[bit_S .& (rand(n) .< vaccin_supply)] .= 'V' end
         if moving σ = 0.005 end
     end
@@ -177,8 +179,8 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 end
 
     T0 = sufficientN(Rt_ .< 1)
-    # if n_S_[end] < (n - 1000)
-    if true
+    if n_S_[end] < (n - 1000)
+    # if true
         seed = lpad(seed_number, 4, '0')
         
         time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_, Rt_), ["S", "E", "I", "R", "V", "Rt"])
@@ -203,10 +205,10 @@ end
     end
 end
 
-for seed_number ∈ 1:100
+for seed_number ∈ 1:1
     for v ∈ [true, false], m ∈ [true, false]
         simulation(
-        seed_number,
+        1,seed_number,
         moving = m,
         vaccin = v)
     end
