@@ -44,7 +44,6 @@ recovery_period = Weibull(3, 7.17)
 
 # ------------------------------------------------------------------ Random Setting
 function simulation(
-    preed_sumber,
     seed_number;
     moving = false,
     vaccin = false)
@@ -52,7 +51,7 @@ function simulation(
     σ = 0.05 # mobility
     scenario = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
     directory = "D:/trash/$scenario/"
-    Random.seed!(preed_sumber); println(seed_number)
+    Random.seed!(1); println(seed_number)
 
     ######################## Initializaion
 
@@ -92,7 +91,7 @@ function simulation(
 for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
     T += 1; if T > end_time break end
-    if T == 32 Random.seed!(seed_number) end
+    if T == 38 Random.seed!(seed_number) end
 
     LATENT   .-= 1
     RECOVERY .-= 1
@@ -179,8 +178,8 @@ for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 end
 
     T0 = sufficientN(Rt_ .< 1)
-    if n_S_[end] < (n - 1000)
-    # if true
+    # if n_S_[end] < (n - 1000)
+    if true
         seed = lpad(seed_number, 4, '0')
         
         time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_, Rt_), ["S", "E", "I", "R", "V", "Rt"])
@@ -205,10 +204,10 @@ end
     end
 end
 
-for seed_number ∈ 1:1
+for seed_number ∈ 1:30
     for v ∈ [true, false], m ∈ [true, false]
         simulation(
-        1,seed_number,
+        seed_number,
         moving = m,
         vaccin = v)
     end

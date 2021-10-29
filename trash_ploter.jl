@@ -1,4 +1,4 @@
-@time using Plots, DynamicsPlots
+@time using Plots
 @time using CSV, DataFrames
 @time using LaTeXStrings
 
@@ -27,7 +27,7 @@ plot_tevl_R = plot(ylabel = L"R(T)")
 plot_tevl_Rt = plot(xlabel = L"T", ylabel = L"R_T")
 plot_smry_RV = plot(xlabel = L"\#R", ylabel = L"\#V", size = (500,500))
 
-for seed_number ∈ 1:1, scenario_code ∈ scenario_list
+for seed_number ∈ 1:30, scenario_code ∈ scenario_list
 temp_tevl = CSV.read("./$scenario_code//$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame)
 plot!(plot_tevl_I,
     temp_tevl.I,
@@ -59,11 +59,11 @@ if scenario_code == "0V" || scenario_code == "MV"
 end
 end
 
-plot_smry_RV
+plot_smry_RV; png(plot_smry_RV, "plot_smry_RV")
 
 plot(
     plot_tevl_I,
     plot_tevl_R,
     plot_tevl_Rt,
     layout = (3,1), size = (600,800)
-)
+); png("plot_tevl")
