@@ -15,8 +15,7 @@ function simulation(
     moving = false,
     vaccin = false)
 
-    scenario = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
-    directory = "D:/trash/$scenario/"
+    folder = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
     Random.seed!(seed_number); println(seed_number)
 
     ######################## Initializaion
@@ -27,6 +26,8 @@ function simulation(
     n_R_ = Int64[]
     n_V_ = Int64[]
     Rt_ = Float64[]
+
+    # n_NODE_I_ = zeros(end_time, N)
 
     transmission = DataFrame(
         T = Int64[],
@@ -51,7 +52,11 @@ function simulation(
     for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 
 @time while sum(state .== 'E') + sum(state .== 'I') > 0
-    T += 1; if T > end_time break end
+    if T ≥ end_time
+        break
+    else
+        T += 1
+    end
     # if T == 38 Random.seed!(seed_number) end
 
     LATENT   .-= 1
@@ -73,8 +78,8 @@ function simulation(
 
     mobility = σ
     if n_I > 10
-        if vaccin state[bit_S .& (rand(n) .< vaccin_supply)] .= 'V' end
-        if moving mobility = σ/10 end
+        if vaccin state[bit_S .& (rand(n) .< p_V)] .= 'V' end
+        if moving mobility = σ*e_σ end
     end
     moved = (rand(n) .< mobility)
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
@@ -92,13 +97,10 @@ function simulation(
         ID_E = ID[bit_micro_E]; n_micro_E = count(bit_micro_E)
         ID_I = ID[bit_micro_I]; n_micro_I = count(bit_micro_I)
         ID_V = ID[bit_micro_V]; n_micro_V = count(bit_micro_V)
-        # NODE_I_[T, node] = n_micro_I
+
+        # n_NODE_I_[T, node] = n_micro_I
         for t in 1:24
             coordinate[:,bit_node] = mod.(coordinate[:,bit_node] + rand(brownian, n_micro), 1.0)
-            # coordinate[:,ID_S] = mod.(coordinate[:,ID_S] + rand(brownian, n_micro_S), 1.0)
-            # coordinate[:,ID_E] = mod.(coordinate[:,ID_E] + rand(brownian, n_micro_E), 1.0)
-            # coordinate[:,ID_I] = mod.(coordinate[:,ID_I] + rand(brownian, n_micro_I), 1.0)
-            # coordinate[:,ID_V] = mod.(coordinate[:,ID_V] + rand(brownian, n_micro_V), 1.0)
             if (n_micro_S == 0) continue end # transmission I to S
             
             kdtreeI = KDTree(coordinate[:,ID_I])
@@ -139,24 +141,26 @@ function simulation(
         isempty(now_I) ? 0 : nrow(transmission[transmission[:,:from] .∈ Ref(now_I),:]) / length(now_I))
 end
 
-    T0 = sufficientN(Rt_ .< 1)
-    # if n_S_[end] < (n - 1000)
+    T1 = sufficientN(Rt_ .< 1)
+    # if T == end_time
     if true
         seed = lpad(seed_number, 4, '0')
         
         time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_, Rt_), ["S", "E", "I", "R", "V", "Rt"])
-        append!(transmission, non_transmission); sort!(transmission, :T)   
-        config = DataFrame(n = n, β = β, vaccin_supply = vaccin_supply, δ = δ, σ = σ, moving = moving, vaccin = vaccin)
-        summary = DataFrame(T0 = T0, R = n_R_[T0], V = n_V_[T0])
+        # config = DataFrame(n = n, β = β, vaccin_supply = vaccin_supply, δ = δ, σ = σ, moving = moving, vaccin = vaccin)
+        summary = DataFrame(T = T, T0 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1], RTend = n_R_[T], VTend = n_V_[T])
+        if seed_number == 0 append!(transmission, non_transmission); sort!(transmission, :T) end
+        # n_NODE_I = DataFrame(n_NODE_I, :auto)
 
         @time if export_type != :XLSX
-            CSV.write(directory * "$seed tevl.csv", time_evolution)
-            CSV.write(directory * "$seed trms.csv", transmission)
-            CSV.write(directory * "$seed cnfg.csv", config, bom = true)
-            CSV.write(directory * "$seed smry.csv", summary, bom = true)
+            CSV.write("./$folder/$seed tevl.csv", time_evolution)
+            # CSV.write("./$folder/$seed cnfg.csv", config, bom = true)
+            CSV.write("./$folder/$seed smry.csv", summary, bom = true)
+            if seed_number == 0 CSV.write("./$folder/$seed trms.csv", transmission) end
+            # CSV.write("./$folder/$seed n_NODE_I.csv", n_NODE_I)
         elseif export_type != :CSV
             XLSX.writetable(
-                directory * "$seed.xlsx",
+                "./$folder/$seed.xlsx",
                 time_evolution = ( collect(eachcol(time_evolution)), names(time_evolution) ),
                 transmission = ( collect(eachcol(transmission)), names(transmission) ),
                 config = ( collect(eachcol(config)), names(config) ),
