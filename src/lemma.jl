@@ -16,7 +16,7 @@ function simulation(
     vaccin = false)
 
     folder = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
-    Random.seed!(seed_number); println(seed_number)
+    Random.seed!(seed_number); print(seed_number); print(">")
 
     ######################## Initializaion
 
@@ -51,7 +51,7 @@ function simulation(
     LOCATION = rand(1:N, n) # macro location
     for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 
-@time while sum(state .== 'E') + sum(state .== 'I') > 0
+while sum(state .== 'E') + sum(state .== 'I') > 0
     if T ≥ end_time
         break
     else
@@ -72,9 +72,9 @@ function simulation(
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R)
     bit_V = (state .== 'V'); n_V = count(bit_V); push!(n_V_, n_V)
 
-    if T > 0
-        println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
-    end
+    # if T > 0
+    #     println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
+    # end
 
     mobility = σ
     if n_I > 10
@@ -152,7 +152,7 @@ end
         if seed_number == 0 append!(transmission, non_transmission); sort!(transmission, :T) end
         # n_NODE_I = DataFrame(n_NODE_I, :auto)
 
-        @time if export_type != :XLSX
+        if export_type != :XLSX
             CSV.write("./$folder/$seed tevl.csv", time_evolution)
             # CSV.write("./$folder/$seed cnfg.csv", config, bom = true)
             CSV.write("./$folder/$seed smry.csv", summary, bom = true)

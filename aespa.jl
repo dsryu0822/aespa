@@ -18,11 +18,8 @@ cd(root); pwd()
 # ------------------------------------------------------------------ setting
 
 export_type = :CSV # :both, :CSV, :XLSX
-todo = [2,3,5]
-
+doing = parse(Int64, ARGS[1])
 # ------------------------------------------------------------------ setting
-
-for doing ∈ todo
 
 scenario = schedule[doing,:]
 try
@@ -75,12 +72,11 @@ global NODE = backbone.fadjlist
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 global recovery_period = Weibull(3, 7.17)
 
-@threads for seed_number ∈ first_seed:last_seed
-    for v ∈ [true, false], m ∈ [true, false]
+@time for v ∈ [true, false], m ∈ [true, false]
+    for seed_number ∈ first_seed:last_seed
         simulation(
         seed_number,
         moving = m,
         vaccin = v)
     end
-end
 end
