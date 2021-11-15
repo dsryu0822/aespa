@@ -46,14 +46,15 @@ for seed_number ∈ cnfg.first_seed:cnfg.last_seed
     plot!(plot_tevl_R, tevlM0.R, linealpha = 0.5, color = :blue)
     plot!(plot_tevl_R, tevlMV.R, linealpha = 0.5, color = :purple)
     
-    plot!(plot_tevl_Rt, tevl00.Rt, linealpha = 0.5, color = :black)
-    plot!(plot_tevl_Rt, tevl0V.Rt, linealpha = 0.5, color = :red)
-    plot!(plot_tevl_Rt, tevlM0.Rt, linealpha = 0.5, color = :blue)
-    plot!(plot_tevl_Rt, tevlMV.Rt, linealpha = 0.5, color = :purple)
+    # plot!(plot_tevl_Rt, tevl00.Rt, linealpha = 0.5, color = :black)
+    # plot!(plot_tevl_Rt, tevl0V.Rt, linealpha = 0.5, color = :red)
+    # plot!(plot_tevl_Rt, tevlM0.Rt, linealpha = 0.5, color = :blue)
+    # plot!(plot_tevl_Rt, tevlMV.Rt, linealpha = 0.5, color = :purple)
 end
 
-plot(plot_tevl_I, plot_tevl_R, plot_tevl_Rt, layout = (3,1), size = (600,800))
-png(export_dir * scenario.name * " 가.png")
+plot(plot_tevl_I, plot_tevl_R, layout = (2,1))
+# plot(plot_tevl_I, plot_tevl_R, plot_tevl_Rt, layout = (2,1), size = (400,800))
+png(export_dir * "가 " * scenario.name * ".png")
 println()
 end
 

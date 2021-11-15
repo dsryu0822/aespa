@@ -6,7 +6,7 @@ schedules = DataFrame(XLSX.readtable("C:/Users/rmsms/OneDrive/lab/aespa//schedul
 import_dir = "D:/simulated/"
 export_dir = "C:/Users/rmsms/OneDrive/lab/aespa/png/"
 
-todo = 1:50
+todo = (1:50) .+ 150
 
 plot_bifurcation = plot(legend = :outertopright, size = (700,500),
  xlabel = L"\sigma", ylabel = L"R(200)")
@@ -14,10 +14,10 @@ for doing ∈ todo
 scenario = schedules[doing,:]
 cnfg = CSV.read(import_dir * scenario.name * "/cnfg.csv", DataFrame)[1,:]
 
-smry00 = DataFrame(T = Int64[], T0 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
-smry0V = DataFrame(T = Int64[], T0 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
-smryM0 = DataFrame(T = Int64[], T0 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
-smryMV = DataFrame(T = Int64[], T0 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
+smry00 = DataFrame(T = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
+smry0V = DataFrame(T = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
+smryM0 = DataFrame(T = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
+smryMV = DataFrame(T = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
 for seed_number ∈ cnfg.first_seed:cnfg.last_seed
     if CSV.read(import_dir * scenario.name * "/00/" * "$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:T] != cnfg.end_time
         continue
@@ -35,6 +35,6 @@ scatter!(plot_bifurcation, repeat([cnfg.σ], length(smryMV.RTend)), smryMV.RTend
 
 print(".")
 end
-png(plot_bifurcation, export_dir * "다.png")
+png(plot_bifurcation, export_dir * "다070.png")
 
 # gif(animation, export_dir * "tevl.gif")

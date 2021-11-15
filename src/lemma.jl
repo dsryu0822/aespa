@@ -27,7 +27,7 @@ function simulation(
     n_V_ = Int64[]
     Rt_ = Float64[]
 
-    # n_NODE_I_ = zeros(end_time, N)
+    if seed_number == 0 n_NODE_I_ = zeros(end_time, N) end
 
     transmission = DataFrame(
         T = Int64[],
@@ -98,11 +98,11 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
         ID_I = ID[bit_micro_I]; n_micro_I = count(bit_micro_I)
         ID_V = ID[bit_micro_V]; n_micro_V = count(bit_micro_V)
 
-        # n_NODE_I_[T, node] = n_micro_I
+        if seed_number == 0 n_NODE_I_[T, node] = n_micro_I end
         for t in 1:24
             coordinate[:,bit_node] = mod.(coordinate[:,bit_node] + rand(brownian, n_micro), 1.0)
-            if (n_micro_S == 0) continue end # transmission I to S
             
+            if (n_micro_S == 0) continue end # transmission I to S
             kdtreeI = KDTree(coordinate[:,ID_I])
 
             in_δ = inrange(kdtreeI, coordinate[:,ID_S], δ)
@@ -116,6 +116,25 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
                 append!(transmission, DataFrame(
                     T = T, t = t, node_id = node,
                     from = from_id, to = ID_infected, Break = 0
+                    ))
+            end
+            state[ID_infected] .= 'E'
+            LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
+            RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
+
+            if (n_micro_V == 0) continue end # transmission I to S
+
+            in_δ = inrange(kdtreeI, coordinate[:,ID_V], δ)
+            contact = length.(in_δ)
+            bit_infected = (rand(n_micro_V) .< (1 .- (1 - β*e_V).^contact))
+            ID_infected = ID_V[bit_infected]
+            
+            n_infected = count(bit_infected)
+            if n_infected > 0
+                from_id = ID_I[deep_pop!.(shuffle.(in_δ))[bit_infected]]
+                append!(transmission, DataFrame(
+                    T = T, t = t, node_id = node,
+                    from = from_id, to = ID_infected, Break = 1
                     ))
             end
             state[ID_infected] .= 'E'
@@ -148,16 +167,16 @@ end
         
         time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_, Rt_), ["S", "E", "I", "R", "V", "Rt"])
         # config = DataFrame(n = n, β = β, vaccin_supply = vaccin_supply, δ = δ, σ = σ, moving = moving, vaccin = vaccin)
-        summary = DataFrame(T = T, T0 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1], RTend = n_R_[T], VTend = n_V_[T])
+        summary = DataFrame(T = T, T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1], RTend = n_R_[T], VTend = n_V_[T])
         if seed_number == 0 append!(transmission, non_transmission); sort!(transmission, :T) end
-        # n_NODE_I = DataFrame(n_NODE_I, :auto)
+        if seed_number == 0 n_NODE_I_ = DataFrame(n_NODE_I_, :auto) end
 
         if export_type != :XLSX
             CSV.write("./$folder/$seed tevl.csv", time_evolution)
             # CSV.write("./$folder/$seed cnfg.csv", config, bom = true)
             CSV.write("./$folder/$seed smry.csv", summary, bom = true)
             if seed_number == 0 CSV.write("./$folder/$seed trms.csv", transmission) end
-            # CSV.write("./$folder/$seed n_NODE_I.csv", n_NODE_I)
+            if seed_number == 0 CSV.write("./$folder/$seed ndwi.csv", n_NODE_I_) end
         elseif export_type != :CSV
             XLSX.writetable(
                 "./$folder/$seed.xlsx",

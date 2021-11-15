@@ -1,14 +1,14 @@
 # @time using Dates
+@time using CSV, XLSX, DataFrames
+schedule = DataFrame(XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")...)
+
 @time include("src/lemma.jl")
 @time using Base.Threads
 @time using Random, Distributions, Statistics
 @time using Graphs, NearestNeighbors
-@time using DataFrames
-@time using CSV, XLSX
 
 # ------------------------------------------------------------------ directory
 
-schedule = DataFrame(XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")...)
 root = "D:/simulated/"
 if !isdir(root)
     mkpath(root)
@@ -66,7 +66,7 @@ global last_seed = scenario.last_seed
 
 global ID = 1:n
 global brownian = MvNormal(2, 0.01) # moving process
-global backbone = barabasi_albert(N, m)
+global backbone = barabasi_albert(N, m, seed = 0)
 global NODE = backbone.fadjlist
 
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title

@@ -13,8 +13,8 @@ scenario = schedules[doing,:]
 
 cnfg = CSV.read(import_dir * scenario.name * "/cnfg.csv", DataFrame)[1,:]
 plot_cluster = plot(legend = :outertopright,
- xlims = (0,200), ylims = (0, 10000),
- xlable = L"T_{1}", ylabel = L"R(T_{1})",
+ xlims = (0,200), ylims = (0, 100000),
+ xlable = L"T_{1}", ylabel = L"R(200)",
  size = (700,500), title = "σ = $(cnfg.σ)")
 
 smry00 = DataFrame(T = Int64[], T0 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
@@ -31,13 +31,13 @@ for seed_number ∈ cnfg.first_seed:cnfg.last_seed
     push!(smryMV, CSV.read(import_dir * scenario.name * "/MV/" * "$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:])
 end
 
-@df smry00 scatter!(plot_cluster, :T0, :RT1, color = :black, label = "Null", markershape = :+)
-@df smry0V scatter!(plot_cluster, :T0, :RT1, color = :red, label = "vaccin only", markershape = :hexagon)
-@df smryM0 scatter!(plot_cluster, :T0, :RT1, color = :blue, label = "control only", markershape = :diamond)
-@df smryMV scatter!(plot_cluster, :T0, :RT1, color = :purple, label = "Full", markershape = :star5)
+@df smry00 scatter!(plot_cluster, :T0, :RTend, color = :black, label = "Null", markershape = :+)
+@df smry0V scatter!(plot_cluster, :T0, :RTend, color = :red, label = "vaccin only", markershape = :hexagon)
+@df smryM0 scatter!(plot_cluster, :T0, :RTend, color = :blue, label = "control only", markershape = :diamond)
+@df smryMV scatter!(plot_cluster, :T0, :RTend, color = :purple, label = "Full", markershape = :star5)
 
-png(plot_cluster, export_dir * scenario.name * " 나.png")
-println()
+png(export_dir * "나 " * scenario.name * ".png")
+print(".")
 end
 
 gif(animation, export_dir * "나.gif", fps = 4)
