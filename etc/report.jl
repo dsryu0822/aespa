@@ -57,7 +57,7 @@ histogram(R0_table.T, label = :none, color = 색상, alpha = 투명도, bin = 10
 # ╔═╡ 69aa3b55-b5fd-462a-98d5-4281209f5093
 begin
 	plot(legend = :topleft)
-	plot!(time_evolution.I, color = :red, label = "number of I", alpha = 0.5)
+	plot!(time_evolution.I, color = colorant"#C00000", label = "number of I", alpha = 0.5)
 	plot!(time_evolution.R, color = :green, label = "number of R", alpha = 0.5)
 end
 

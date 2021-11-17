@@ -11,9 +11,9 @@ scenario_list = ["00", "0V", "M0", "MV"]
 # scenario_list = ["00"]
 scenario_color = Dict([
     "00" => :black,
-    "0V" => :red,
-    "M0" => :blue,
-    "MV" => :purple]
+    "0V" => colorant"#C00000",
+    "M0" => colorant"#0070C0",
+    "MV" => colorant"#7030A0"]
 )
 scenario_shape = Dict([
     "00" => :circle,
@@ -121,12 +121,12 @@ plot(
 
 using StatsPlots
 using Statistics
-boxplot(smry_0V[:,2], color = :red, label = "0V", size = (400,400))
-boxplot!(smry_MV[:,2], color = :purple, label = "MV")
+boxplot(smry_0V[:,2], color = colorant"#C00000", label = "0V", size = (400,400))
+boxplot!(smry_MV[:,2], color = colorant"#7030A0", label = "MV")
 png("box_V")
 
-boxplot(smry_0V[:,1], color = :red, label = "0V", size = (400,400))
-boxplot!(smry_MV[:,1], color = :purple, label = "MV")
+boxplot(smry_0V[:,1], color = colorant"#C00000", label = "0V", size = (400,400))
+boxplot!(smry_MV[:,1], color = colorant"#7030A0", label = "MV")
 png("box_R")
 
 plot(rand(10), linealpha = 0)

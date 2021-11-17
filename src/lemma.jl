@@ -27,7 +27,7 @@ function simulation(
     n_V_ = Int64[]
     Rt_ = Float64[]
 
-    if seed_number == 0 n_NODE_I_ = zeros(end_time, N) end
+    if seed_number != 0 n_NODE_I_ = zeros(end_time, N) end
 
     transmission = DataFrame(
         T = Int64[],
@@ -98,7 +98,7 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
         ID_I = ID[bit_micro_I]; n_micro_I = count(bit_micro_I)
         ID_V = ID[bit_micro_V]; n_micro_V = count(bit_micro_V)
 
-        if seed_number == 0 n_NODE_I_[T, node] = n_micro_I end
+        if seed_number != 0 n_NODE_I_[T, node] = n_micro_I end
         for t in 1:24
             coordinate[:,bit_node] = mod.(coordinate[:,bit_node] + rand(brownian, n_micro), 1.0)
             
@@ -161,22 +161,29 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
 end
 
     T1 = sufficientN(Rt_ .< 1)
+    peaktime = argmax(n_I_)
+    peaksize = maximum(n_I_)
     # if T == end_time
     if true
         seed = lpad(seed_number, 4, '0')
         
+        if seed_number != 0 append!(transmission, non_transmission); sort!(transmission, :T) end
+        if seed_number != 0 n_NODE_I_ = DataFrame(n_NODE_I_, :auto) end
         time_evolution = DataFrame(hcat(n_S_, n_E_, n_I_, n_R_, n_V_, Rt_), ["S", "E", "I", "R", "V", "Rt"])
-        # config = DataFrame(n = n, β = β, vaccin_supply = vaccin_supply, δ = δ, σ = σ, moving = moving, vaccin = vaccin)
-        summary = DataFrame(T = T, T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1], RTend = n_R_[T], VTend = n_V_[T])
-        if seed_number == 0 append!(transmission, non_transmission); sort!(transmission, :T) end
-        if seed_number == 0 n_NODE_I_ = DataFrame(n_NODE_I_, :auto) end
+
+        node_incidence = transmission[transmission.to .> 0,:node_id]
+        incidence5 = count(node_incidence .== 5)
+        incidence4 = count(node_incidence .== 4)
+        hub_incidence_rate = (incidence5 + incidence4) / n_R_[T]
+        summary = DataFrame(Tend = T, RTend = n_R_[T], peaktime = peaktime, peaksize = peaksize,
+         incidence5 = incidence5, incidence4 = incidence4, HIR = hub_incidence_rate,
+         T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1])
 
         if export_type != :XLSX
+            if seed_number != 0 CSV.write("./$folder/$seed trms.csv", transmission) end
+            if seed_number != 0 CSV.write("./$folder/$seed ndwi.csv", n_NODE_I_) end
             CSV.write("./$folder/$seed tevl.csv", time_evolution)
-            # CSV.write("./$folder/$seed cnfg.csv", config, bom = true)
             CSV.write("./$folder/$seed smry.csv", summary, bom = true)
-            if seed_number == 0 CSV.write("./$folder/$seed trms.csv", transmission) end
-            if seed_number == 0 CSV.write("./$folder/$seed ndwi.csv", n_NODE_I_) end
         elseif export_type != :CSV
             XLSX.writetable(
                 "./$folder/$seed.xlsx",

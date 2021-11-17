@@ -1,20 +1,21 @@
 @time using CSV, XLSX, DataFrames, StatsBase, Statistics
 @time using Plots, LaTeXStrings, StatsPlots
+default()
 default(markeralpha = 0.5, markerstrokewidth = 0)
 
 schedules = DataFrame(XLSX.readtable("C:/Users/rmsms/OneDrive/lab/aespa//schedule.xlsx", "schedule")...)
 import_dir = "D:/simulated/"
 export_dir = "C:/Users/rmsms/OneDrive/lab/aespa/png/"
 
-color_ = Dict("00" => :black, "0V" => :red, "M0" => :blue, "MV" => :purple)
-shape_ = Dict("00" => :circle, "0V" => :x, "M0" => :+, "MV" => :star5)
+color_ = Dict("00" => :black, "0V" => colorant"#C00000", "M0" => colorant"#0070C0", "MV" => colorant"#7030A0")
+shape_ = Dict("00" => :+, "0V" => :x, "M0" => :circle, "MV" => :star5)
 
 todo = (1:50) .+ 0
 
 plot_bifurcation1 = plot(legend = :outertopright, size = (700,500),
- xlabel = L"\sigma", ylabel = L"R(200) / n")
+ xlabel = L"\sigma", ylabel = L"R(\infty) / n")
 plot_bifurcation2 = plot(legend = :outertopright, size = (700,500),
- xlabel = L"\sigma", ylabel = L"R(200) / n")
+ xlabel = L"\sigma", ylabel = L"R(\infty) / n")
 println("ready")
 
 for k ∈ keys(color_)
@@ -26,9 +27,11 @@ Q₁  = zeros(length(todo))
 for (sigma, doing) ∈ enumerate(todo)
     scenario = schedules[doing,:]
     cnfg = CSV.read(import_dir * scenario.name * "/cnfg.csv", DataFrame)[1,:]
-    raw = DataFrame(T = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[], RTend = Int64[], VTend = Int64[])
+    raw = DataFrame(Tend = Int64[], RTend = Int64[], peaktime = Int64[], peaksize = Int64[],
+     incidence5 = Int64[], incidence4 = Int64[], HIR = Float64[],
+     T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
     for seed_number ∈ cnfg.first_seed:cnfg.last_seed
-        if CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:T] != cnfg.end_time
+        if CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:Tend] < 100 # cnfg.end_time
             continue
         end
         push!(raw, CSV.read(import_dir * scenario.name * "/" * k * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:])
@@ -38,7 +41,7 @@ for (sigma, doing) ∈ enumerate(todo)
     
     num_raw = nrow(raw)
     σ_axis = repeat([cnfg.σ], num_raw)
-    scatter!(plot_bifurcation1, σ_axis, raw.RTend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
+    scatter!(plot_bifurcation1, σ_axis, raw.HIR, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
     print(".")
 end
 
@@ -53,7 +56,7 @@ plot!(plot_bifurcation2, M, label = k, color = color_[k], markershape = shape_[k
 # quantile(smry00.RTend ./ cnfg.n, [.25, .50, .75])
 println()
 end
-png(plot_bifurcation1, export_dir * "다.png")
-png(plot_bifurcation2, export_dir * "라.png")
+png(plot_bifurcation1, export_dir * "사.png")
+# png(plot_bifurcation2, export_dir * "사2.png")
 
 # gif(animation, export_dir * "tevl.gif")
