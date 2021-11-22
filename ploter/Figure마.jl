@@ -1,18 +1,8 @@
-@time using CSV, XLSX, DataFrames, StatsBase, Statistics
-@time using Plots, LaTeXStrings, StatsPlots
-# default(markeralpha = 0.5, markerstrokewidth = 0)
-default()
+@time include("FigureSetting.jl")
+
 default(linealpha = 0.5, linewidth = 2, fillalpha = 0.2, 
  yticks = 0:2,
  label = :none, xlabel = L"T", ylabel = L"R_{T}", ylims = (0,2))
-
-schedules = DataFrame(XLSX.readtable("C:/Users/rmsms/OneDrive/lab/aespa//schedule.xlsx", "schedule")...)
-import_dir = "D:/simulated/"
-export_dir = "C:/Users/rmsms/OneDrive/lab/aespa/png/"
-
-color_ = Dict("00" => :black, "0V" => colorant"#C00000", "M0" => colorant"#0070C0", "MV" => colorant"#7030A0")
-shape_ = Dict("00" => :+, "0V" => :x, "M0" => :circle, "MV" => :star5)
-
 # todo = (1:50) .+ 0
 
 plot_RT00 = plot(legend = :none, size = (700,300),

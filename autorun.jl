@@ -1,5 +1,5 @@
 todo = parse(Int64, ARGS[1]):8:200
-# todo = [1,51,101,151]
+# todo = 201:203
 
 for doing ∈ todo
     println(doing)

@@ -1,11 +1,6 @@
-@time using CSV, XLSX, DataFrames
-@time using Plots, LaTeXStrings
-default()
-default(xlims = (0,1000), xticks = 0:200:1000, linealpha = 0.2, linewidth = 2)
+@time include("FigureSetting.jl")
 
-schedules = DataFrame(XLSX.readtable("C:/Users/rmsms/OneDrive/lab/aespa//schedule.xlsx", "schedule")...)
-import_dir = "D:/simulated/"
-export_dir = "C:/Users/rmsms/OneDrive/lab/aespa/png/"
+default(xlims = (0,1000), xticks = 0:200:1000, linealpha = 0.2, linewidth = 2)
 
 todo = 1:50
 

@@ -2,10 +2,12 @@
 @time using CSV, XLSX, DataFrames
 schedule = DataFrame(XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")...)
 
-@time include("src/lemma.jl")
 @time using Base.Threads
 @time using Random, Distributions, Statistics
 @time using Graphs, NearestNeighbors
+
+@time include("src/lemma.jl")
+@time include("src/main.jl")
 
 # ------------------------------------------------------------------ directory
 
@@ -38,6 +40,7 @@ end
 
 global m = 3 # number of network link
 global number_of_host = 1
+global θ = 10
 
 global σ = scenario.σ
 global e_σ = scenario.e_σ
@@ -50,7 +53,6 @@ global δ = scenario.δ
 global end_time = scenario.end_time
 global first_seed = scenario.first_seed
 global last_seed = scenario.last_seed
-
 
 # σ = 0.025 # mobility
 # e_σ = 0.1 # effect of moving control
