@@ -178,49 +178,70 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
         isempty(now_I) ? 0 : nrow(transmission[transmission[:,:from] .∈ Ref(now_I),:]) / length(now_I))
 end
 
-    T1 = sufficientN(RT_ .< 1)
-    peaktime = argmax(n_I_)
-    peaksize = maximum(n_I_)
-    # if T == end_time
-    print(": $(n_R_[T]), ")
-    if true
-        seed = lpad(seed_number, 4, '0')
-        
-        node_incidence = transmission.node_id                                                       # 01
-        if seed_number != 0 append!(transmission, non_transmission); sort!(transmission, :T) end    # 02
-        time_evolution = DataFrame(
-n_S_ = n_S_, n_E_ = n_E_, n_I_ = n_I_, n_R_ = n_R_, n_V_ = n_V_, n_hub_ = n_hub_, RT_ = RT_,
-S_influx_ = S_influx_, I_influx_ = I_influx_, E_influx_ = E_influx_, R_influx_ = R_influx_, V_influx_ = V_influx_,
-S_outflux_ = S_outflux_, I_outflux_ = I_outflux_, E_outflux_ = E_outflux_, R_outflux_ = R_outflux_, V_outflux_ = V_outflux_
-        )
+print(": $(n_R_[T]), ")
+T1 = sufficientN(RT_ .< 1)
+peaktime = argmax(n_I_)
+peaksize = maximum(n_I_)
+# if T == end_time
+# if true
+seed = lpad(seed_number, 4, '0')
 
-        # node_incidence = transmission[transmission.to .> 0,:node_id]
-        count_node_incidence = [count(node_incidence .== node_id) for node_id ∈ 1:N]
-        incidence5 = count_node_incidence[5]                                                        # 03
-        incidence4 = count_node_incidence[4]
-        hub_incidence_rate = (incidence5 + incidence4) / sum(count_node_incidence)
-        incidence_entropy = entropy(count_node_incidence ./ sum(count_node_incidence), N)
+fromby = groupby(transmission, :from)
+agent_id = Int64[]
+node_id = Int64[]
+home = Int64[]
+away = Int64[]
+for agent ∈ fromby
+    node_infected = agent.node_id[1]
+    push!(agent_id, agent.from[1])
+    push!(node_id, node_infected)
+    push!(home, count(agent.node_id .== node_infected))
+    push!(away, count(agent.node_id .!= node_infected))
+end
+case = home .+ away
+agent_seconarycases = DataFrame(; agent_id, node_id, case, home, away)
 
-        summary = DataFrame(Tend = T, RTend = n_R_[T], peaktime = peaktime, peaksize = peaksize,
-         incidence5 = incidence5, incidence4 = incidence4, HIR = hub_incidence_rate,
-         incidence_entropy = incidence_entropy,
-         T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1])
+node_incidence = transmission[transmission.to .> 0,:node_id]
+count_node_incidence = [count(node_incidence .== node_id) for node_id ∈ 1:N]
+incidence5 = count_node_incidence[5]; incidence4 = count_node_incidence[4]
+hub_incidence_rate = (incidence5 + incidence4) / sum(count_node_incidence)
+incidence_entropy = entropy(count_node_incidence ./ sum(count_node_incidence), N)
 
-        if export_type != :XLSX
-            if seed_number != 0 CSV.write("./$folder/$seed trms.csv", transmission) end
-            if seed_number != 0 CSV.write("./$folder/$seed ndwi.csv", DataFrame(n_NODE_S_, :auto)) end
-            if seed_number != 0 CSV.write("./$folder/$seed ndws.csv", DataFrame(n_NODE_I_, :auto)) end
-            if seed_number != 0 CSV.write("./$folder/$seed ndwf.csv", DataFrame(n_NODE_S_ .* n_NODE_I_, :auto)) end # Force of infection
-            CSV.write("./$folder/$seed tevl.csv", time_evolution)
-            CSV.write("./$folder/$seed smry.csv", summary, bom = true)
-        elseif export_type != :CSV
-            XLSX.writetable(
-                "./$folder/$seed.xlsx",
-                time_evolution = ( collect(eachcol(time_evolution)), names(time_evolution) ),
-                transmission = ( collect(eachcol(transmission)), names(transmission) ),
-                config = ( collect(eachcol(config)), names(config) ),
-                summary = ( collect(eachcol(summary)), names(summary) )
-            )
-        end
-    end
+if seed_number != 0 append!(transmission, non_transmission); sort!(transmission, :T) end
+time_evolution = DataFrame(;
+n_S_, n_E_, n_I_, n_R_, n_V_, n_hub_, RT_,
+S_influx_, I_influx_, E_influx_, R_influx_, V_influx_,
+S_outflux_, I_outflux_, E_outflux_, R_outflux_, V_outflux_
+)
+
+# count_node_incidence = [count(node_incidence .== node_id) for node_id ∈ 1:N]
+# incidence5 = count_node_incidence[5]
+# incidence4 = count_node_incidence[4]
+# hub_incidence_rate = (incidence5 + incidence4) / sum(count_node_incidence)
+# incidence_entropy = entropy(count_node_incidence ./ sum(count_node_incidence), N)
+
+summary = DataFrame(Tend = T, RTend = n_R_[T], peaktime = peaktime, peaksize = peaksize,
+    incidence5 = incidence5, incidence4 = incidence4, HIR = hub_incidence_rate,
+    incidence_entropy = incidence_entropy,
+    T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1],
+    home = sum(home), away = sum(away))
+
+# if export_type != :XLSX
+CSV.write("./$folder/$seed ndwi.csv", DataFrame(n_NODE_S_, :auto))
+CSV.write("./$folder/$seed ndws.csv", DataFrame(n_NODE_I_, :auto))
+CSV.write("./$folder/$seed ndwf.csv", DataFrame(n_NODE_S_ .* n_NODE_I_, :auto)) # Force of infection
+CSV.write("./$folder/$seed trms.csv", transmission)
+CSV.write("./$folder/$seed agnt.csv", agent_seconarycases)
+CSV.write("./$folder/$seed tevl.csv", time_evolution)
+CSV.write("./$folder/$seed smry.csv", summary, bom = true)
+# elseif export_type != :CSV
+#     XLSX.writetable(
+#         "./$folder/$seed.xlsx",
+#         time_evolution = ( collect(eachcol(time_evolution)), names(time_evolution) ),
+#         transmission = ( collect(eachcol(transmission)), names(transmission) ),
+#         config = ( collect(eachcol(config)), names(config) ),
+#         summary = ( collect(eachcol(summary)), names(summary) )
+#     )
+# end
+# end
 end

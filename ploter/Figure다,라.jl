@@ -1,11 +1,11 @@
 @time include("FigureSetting.jl")
 
 default(markeralpha = 0.5, markerstrokewidth = 0,
- xticks = 0:0.2:0.6, yticks = 0:0.2:0.6, ylims = (0,0.7),
- legend = :outertopright, size = (700,500),
+ xticks = [0.07, 0.15, 0.4], yticks = 0:0.2:0.6, ylims = (0,0.7),
+ legend = :right, size = (600,300),
  xlabel = L"\sigma", ylabel = L"R(\infty) / n")
 
-todo = (1:50) .+ 0
+todo = (1:10) .+ 0
 
 plot_bifurcation1 = plot()
 plot_bifurcation2 = plot()
@@ -40,12 +40,12 @@ end
 # IQR = Q₃ - Q₁
 # U   = Q₃ + 1.5IQR
 # L   = Q₁ - 1.5IQR
-plot!(plot_bifurcation2, 0.01:0.01:0.5, Q₃, fillrange = Q₁, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
-plot!(plot_bifurcation2, 0.01:0.01:0.5, M, label = k, color = color_[k], markershape = shape_[k], alpha = 0.5)
+plot!(plot_bifurcation2, 0.01:0.01:0.1, Q₃, fillrange = Q₁, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
+plot!(plot_bifurcation2, 0.01:0.01:0.1, M, label = label_[k], color = color_[k], markershape = shape_[k], alpha = 0.5)
 
 println()
 end
-png(plot_bifurcation1, export_dir * "다.png")
-png(plot_bifurcation2, export_dir * "라.png")
+png(plot_bifurcation1, export_dir * "다 Rend.png")
+png(plot_bifurcation2, export_dir * "라 Rend.png")
 
 # plot(0.01:0.01:0.5, Q₃)
