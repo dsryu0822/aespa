@@ -1,6 +1,7 @@
 # @time using Dates
 @time using CSV, XLSX, DataFrames
-schedule = DataFrame(XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")...)
+excuted_DIR = string(@__DIR__)
+schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule")...)
 
 @time using Base.Threads
 @time using Random, Distributions, Statistics
@@ -42,6 +43,7 @@ global m = 3 # number of network link
 global number_of_host = 1
 global θ = 10
 
+global network = scenario.network
 global σ = scenario.σ
 global e_σ = scenario.e_σ
 global p_V = scenario.p_V
@@ -68,8 +70,21 @@ global last_seed = scenario.last_seed
 
 global ID = 1:n
 global brownian = MvNormal(2, 0.01) # moving process
-global backbone = barabasi_albert(N, m, seed = 0)
-global NODE = backbone.fadjlist
+
+if network == 0
+    backbone = barabasi_albert(N, m, seed = 0)
+    global NODE = Dict(1:N .=> backbone.fadjlist)
+    CSV.write(root * "ntwk.csv", DataFrame(
+        deg = degree(backbone),
+        betweenness = betweenness_centrality(backbone),
+        closeness = closeness_centrality(backbone),
+        stress = stress_centrality(backbone)
+        ))
+elseif network == -1
+    using JLD
+    realnetwork = load(excuted_DIR * "/world_wide_flight_network.jld")
+    global NODE = Dict(realnetwork["nodes"] .=> realnetwork["adj"])
+end
 
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 global recovery_period = Weibull(3, 7.17)

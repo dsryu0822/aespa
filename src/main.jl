@@ -15,7 +15,17 @@ function simulation(
     n_V_ = Int64[]
     n_hub_ = Int64[]
 
+    contact_ = Int64[]
+    SI_ = Int64[]
     RT_ = Float64[]
+    entropy_ = Float64[]
+    var_ = Float64[]
+
+    n_moved_S_ = Int64[]
+    n_moved_E_ = Int64[]
+    n_moved_I_ = Int64[]
+    n_moved_V_ = Int64[]
+    n_moved_R_ = Int64[]
 
     S_influx_ = Int64[]
     I_influx_ = Int64[]
@@ -31,6 +41,7 @@ function simulation(
 
     if seed_number != 0 n_NODE_S_ = zeros(Int64, end_time, N) end
     if seed_number != 0 n_NODE_I_ = zeros(Int64, end_time, N) end
+    if seed_number != 0 n_NODE_incd_ = zeros(Int64, end_time, N) end
 
     transmission = DataFrame(
         T = Int64[],
@@ -53,7 +64,7 @@ function simulation(
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
 
     coordinate = rand(Float16, 2, n) # micro location
-    LOCATION = rand(1:N, n) # macro location
+    LOCATION = rand(NODE_ID, n) # macro location
     for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
 
 while sum(state .== 'E') + sum(state .== 'I') > 0
@@ -88,6 +99,12 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
         if moving mobility = σ*e_σ end
     end
     moved = (rand(n) .< mobility)
+    push!(n_moved_S_, count(moved .& bit_S))
+    push!(n_moved_E_, count(moved .& bit_E))
+    push!(n_moved_I_, count(moved .& bit_I))
+    push!(n_moved_R_, count(moved .& bit_R))
+    push!(n_moved_V_, count(moved .& bit_V))
+
     bit_in = (moved .& bit_hub)
     push!(S_outflux_, count(bit_in .& bit_S))
     push!(E_outflux_, count(bit_in .& bit_E))
@@ -103,6 +120,8 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
     push!(R_influx_, count(bit_out .& bit_R))
     push!(V_influx_, count(bit_out .& bit_V))
 
+    contact_t = 0
+    SI_t = 0
     NODE_I = unique(LOCATION[bit_I])
     for node in NODE_I
         bit_node = (LOCATION .== node); n_micro = count(bit_node)
@@ -117,6 +136,8 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
         ID_I = ID[bit_micro_I]; n_micro_I = count(bit_micro_I)
         ID_V = ID[bit_micro_V]; n_micro_V = count(bit_micro_V)
 
+        SI_t += n_micro_S*n_micro_I
+
         if seed_number != 0 n_NODE_S_[T, node] = n_micro_S end
         if seed_number != 0 n_NODE_I_[T, node] = n_micro_I end
         for t in 1:24
@@ -126,6 +147,8 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
             if (n_micro_S == 0) continue end # transmission I to S
             in_δ = inrange(kdtreeI, coordinate[:,ID_S], δ)
             contact = length.(in_δ)
+            contact_t += sum(contact)
+
             bit_infected = (rand(n_micro_S) .< (1 .- (1 - β).^contact))
             ID_infected = ID_S[bit_infected]
             
@@ -141,9 +164,12 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
             LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
             RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
 
+            if !(e_V > 0) continue end # for efficient simulation
             if (n_micro_V == 0) continue end # transmission I to V
             in_δ = inrange(kdtreeI, coordinate[:,ID_V], δ)
             contact = length.(in_δ)
+            contact_t += sum(contact)
+
             bit_infected = (rand(n_micro_V) .< (1 .- (1 - β*e_V).^contact))
             ID_infected = ID_V[bit_infected]
             
@@ -171,7 +197,15 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
             end
         end
     end
-    
+    push!(contact_, contact_t)
+    push!(SI_, SI_t)
+
+    transmission_node_id = transmission.node_id
+    count_node_incidence = [count(transmission_node_id .== node_id) for node_id ∈ 1:N]
+    n_NODE_incd_[T,:] = count_node_incidence
+    entropy_ = push!(entropy_, entropy(count_node_incidence ./ sum(count_node_incidence), N))
+    var_ = push!(var_, var(count_node_incidence))
+
     now_I = ID[state .== 'I']
     push!(
         RT_,
@@ -201,15 +235,18 @@ end
 case = home .+ away
 agent_seconarycases = DataFrame(; agent_id, node_id, case, home, away)
 
-node_incidence = transmission[transmission.to .> 0,:node_id]
-count_node_incidence = [count(node_incidence .== node_id) for node_id ∈ 1:N]
-incidence5 = count_node_incidence[5]; incidence4 = count_node_incidence[4]
-hub_incidence_rate = (incidence5 + incidence4) / sum(count_node_incidence)
-incidence_entropy = entropy(count_node_incidence ./ sum(count_node_incidence), N)
+# node_incidence = transmission[transmission.to .> 0,:node_id]
+# count_node_incidence = [count(node_incidence .== node_id) for node_id ∈ 1:N]
+# incidence5 = count_node_incidence[5]; incidence4 = count_node_incidence[4]
+# hub_incidence_rate = (incidence5 + incidence4) / sum(count_node_incidence)
+# incidence_entropy = entropy(count_node_incidence ./ sum(count_node_incidence), N)
+# incidence_var = var(count_node_incidence)
 
 if seed_number != 0 append!(transmission, non_transmission); sort!(transmission, :T) end
 time_evolution = DataFrame(;
-n_S_, n_E_, n_I_, n_R_, n_V_, n_hub_, RT_,
+n_S_, n_E_, n_I_, n_R_, n_V_, n_hub_, contact_, SI_, RT_,
+entropy_, var_,
+n_moved_S_, n_moved_E_, n_moved_I_, n_moved_R_, n_moved_V_,
 S_influx_, I_influx_, E_influx_, R_influx_, V_influx_,
 S_outflux_, I_outflux_, E_outflux_, R_outflux_, V_outflux_
 )
@@ -220,15 +257,16 @@ S_outflux_, I_outflux_, E_outflux_, R_outflux_, V_outflux_
 # hub_incidence_rate = (incidence5 + incidence4) / sum(count_node_incidence)
 # incidence_entropy = entropy(count_node_incidence ./ sum(count_node_incidence), N)
 
-summary = DataFrame(Tend = T, RTend = n_R_[T], peaktime = peaktime, peaksize = peaksize,
-    incidence5 = incidence5, incidence4 = incidence4, HIR = hub_incidence_rate,
-    incidence_entropy = incidence_entropy,
+summary = DataFrame(Tend = T, Rend = n_R_[T], Vend = n_V_[T], peaktime = peaktime, peaksize = peaksize,
+    # incidence5 = incidence5, incidence4 = incidence4, HIR = hub_incidence_rate,
+    incidence_entropy = entropy_[T], incidence_var = var_[T],
     T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1],
     home = sum(home), away = sum(away))
 
 # if export_type != :XLSX
-CSV.write("./$folder/$seed ndwi.csv", DataFrame(n_NODE_S_, :auto))
-CSV.write("./$folder/$seed ndws.csv", DataFrame(n_NODE_I_, :auto))
+CSV.write("./$folder/$seed ndws.csv", DataFrame(n_NODE_S_, :auto))
+CSV.write("./$folder/$seed ndwi.csv", DataFrame(n_NODE_I_, :auto))
+CSV.write("./$folder/$seed incd.csv", DataFrame(n_NODE_incd_, :auto))
 CSV.write("./$folder/$seed ndwf.csv", DataFrame(n_NODE_S_ .* n_NODE_I_, :auto)) # Force of infection
 CSV.write("./$folder/$seed trms.csv", transmission)
 CSV.write("./$folder/$seed agnt.csv", agent_seconarycases)
