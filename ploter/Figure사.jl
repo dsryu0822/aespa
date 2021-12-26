@@ -26,7 +26,7 @@ for (sigma, doing) ∈ enumerate(todo)
         end
         push!(raw, CSV.read(import_dir * scenario.name * "/" * k * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:])
     end
-    # println(quantile(raw.RTend ./ cnfg.n, [.25, .50, .75]))
+    # println(quantile(raw.Rend ./ cnfg.n, [.25, .50, .75]))
     Q₁[sigma] , M[sigma], Q₃[sigma] = quantile(raw.HIR, [.25, .50, .75])
     
     num_raw = nrow(raw)
@@ -43,7 +43,7 @@ L   = Q₁ - 1.5IQR
 plot!(plot_bifurcation2, 0.01:0.01:0.1, Q₃, fillrange = Q₁, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
 # plot!(plot_bifurcation2, U, fillrange = L, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
 plot!(plot_bifurcation2, 0.01:0.01:0.1, M, label = k, color = color_[k], markershape = shape_[k], alpha = 0.5)
-# quantile(smry00.RTend ./ cnfg.n, [.25, .50, .75])
+# quantile(smry00.Rend ./ cnfg.n, [.25, .50, .75])
 println()
 end
 png(plot_bifurcation1, export_dir * "사.png")

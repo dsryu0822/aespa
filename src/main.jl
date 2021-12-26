@@ -4,7 +4,16 @@ function simulation(
     vaccin = false)
 
     folder = (moving ? 'M' : '0') * (vaccin ? 'V' : '0')
-    Random.seed!(seed_number); print(seed_number)
+    Random.seed!(seed_number);
+    if folder == "00"
+        print(Crayon(foreground = :white), seed_number)
+    elseif folder == "0V"
+        print(Crayon(foreground = :light_red), seed_number)
+    elseif folder == "M0"
+        print(Crayon(foreground = :light_blue), seed_number)
+    elseif folder == "MV"
+        print(Crayon(foreground = :magenta), seed_number)
+    end
 
     ####################################################################
 
@@ -13,13 +22,13 @@ function simulation(
     n_I_ = Int64[]
     n_R_ = Int64[]
     n_V_ = Int64[]
-    n_hub_ = Int64[]
+    # n_hub_ = Int64[]
 
     contact_ = Int64[]
-    SI_ = Int64[]
     RT_ = Float64[]
-    entropy_ = Float64[]
-    var_ = Float64[]
+    SI_ = Int64[]
+    # entropy_ = Float64[]
+    # var_ = Float64[]
 
     n_moved_S_ = Int64[]
     n_moved_E_ = Int64[]
@@ -27,28 +36,28 @@ function simulation(
     n_moved_V_ = Int64[]
     n_moved_R_ = Int64[]
 
-    S_influx_ = Int64[]
-    I_influx_ = Int64[]
-    E_influx_ = Int64[]
-    R_influx_ = Int64[]
-    V_influx_ = Int64[]
+    # S_influx_ = Int64[]
+    # I_influx_ = Int64[]
+    # E_influx_ = Int64[]
+    # R_influx_ = Int64[]
+    # V_influx_ = Int64[]
 
-    S_outflux_ = Int64[]
-    I_outflux_ = Int64[]
-    E_outflux_ = Int64[]
-    R_outflux_ = Int64[]
-    V_outflux_ = Int64[]
+    # S_outflux_ = Int64[]
+    # I_outflux_ = Int64[]
+    # E_outflux_ = Int64[]
+    # R_outflux_ = Int64[]
+    # V_outflux_ = Int64[]
 
-    if seed_number != 0 n_NODE_S_ = zeros(Int64, end_time, N) end
-    if seed_number != 0 n_NODE_I_ = zeros(Int64, end_time, N) end
-    if seed_number != 0 n_NODE_incd_ = zeros(Int64, end_time, N) end
+    # n_NODE_S_ = DataFrame(zeros(Int64, end_time, N), :auto)
+    # n_NODE_I_ = DataFrame(zeros(Int64, end_time, N), :auto)
+    # n_NODE_incd_ = DataFrame(zeros(Int64, end_time, N), :auto)
 
     transmission = DataFrame(
         T = Int64[],
         t = Int64[],
-        node_id = Int64[],
-        from = Int64[],
-        to = Int64[],
+        node_id = [],
+        from = [],
+        to = [],
         Break = Int64[]
     )
     non_transmission = copy(transmission)
@@ -65,7 +74,7 @@ function simulation(
 
     coordinate = rand(Float16, 2, n) # micro location
     LOCATION = rand(NODE_ID, n) # macro location
-    for _ in 1:5 LOCATION = rand.(NODE[LOCATION]) end
+    for _ in 1:5 LOCATION = rand.(getindex.(Ref(NODE),LOCATION)) end
 
 while sum(state .== 'E') + sum(state .== 'I') > 0
     if T ≥ end_time
@@ -87,7 +96,7 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
     bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I)
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R)
     bit_V = (state .== 'V'); n_V = count(bit_V); push!(n_V_, n_V)
-    bit_hub = ((LOCATION .== 5) .| (LOCATION .== 4)) ; n_hub = count(bit_hub); push!(n_hub_, n_hub)
+    # bit_hub = ((LOCATION .== 5) .| (LOCATION .== 4)) ; n_hub = count(bit_hub); push!(n_hub_, n_hub)
 
     # if T > 0
     #     println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
@@ -105,20 +114,21 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
     push!(n_moved_R_, count(moved .& bit_R))
     push!(n_moved_V_, count(moved .& bit_V))
 
-    bit_in = (moved .& bit_hub)
-    push!(S_outflux_, count(bit_in .& bit_S))
-    push!(E_outflux_, count(bit_in .& bit_E))
-    push!(I_outflux_, count(bit_in .& bit_I))
-    push!(R_outflux_, count(bit_in .& bit_R))
-    push!(V_outflux_, count(bit_in .& bit_V))
+    # bit_in = (moved .& bit_hub)
+    # push!(S_outflux_, count(bit_in .& bit_S))
+    # push!(E_outflux_, count(bit_in .& bit_E))
+    # push!(I_outflux_, count(bit_in .& bit_I))
+    # push!(R_outflux_, count(bit_in .& bit_R))
+    # push!(V_outflux_, count(bit_in .& bit_V))
 
-    LOCATION[moved] = rand.(NODE[LOCATION[moved]])
-    bit_out = (moved .& .!(bit_hub)) .& ((LOCATION .== 5) .| (LOCATION .== 4))
-    push!(S_influx_, count(bit_out .& bit_S))
-    push!(E_influx_, count(bit_out .& bit_E))
-    push!(I_influx_, count(bit_out .& bit_I))
-    push!(R_influx_, count(bit_out .& bit_R))
-    push!(V_influx_, count(bit_out .& bit_V))
+    # LOCATION[moved] = rand.(NODE[LOCATION[moved]])
+    LOCATION[moved] = rand.(getindex.(Ref(NODE),LOCATION[moved]))
+    # bit_out = (moved .& .!(bit_hub)) .& ((LOCATION .== 5) .| (LOCATION .== 4))
+    # push!(S_influx_, count(bit_out .& bit_S))
+    # push!(E_influx_, count(bit_out .& bit_E))
+    # push!(I_influx_, count(bit_out .& bit_I))
+    # push!(R_influx_, count(bit_out .& bit_R))
+    # push!(V_influx_, count(bit_out .& bit_V))
 
     contact_t = 0
     SI_t = 0
@@ -138,9 +148,9 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
 
         SI_t += n_micro_S*n_micro_I
 
-        if seed_number != 0 n_NODE_S_[T, node] = n_micro_S end
-        if seed_number != 0 n_NODE_I_[T, node] = n_micro_I end
-        for t in 1:24
+        # if seed_number != 0 n_NODE_S_[T, node] = n_micro_S end
+        # if seed_number != 0 n_NODE_I_[T, node] = n_micro_I end
+        for t in 1:12
             coordinate[:,bit_node] = mod.(coordinate[:,bit_node] + rand(brownian, n_micro), 1.0)
             kdtreeI = KDTree(coordinate[:,ID_I])
             
@@ -200,11 +210,11 @@ while sum(state .== 'E') + sum(state .== 'I') > 0
     push!(contact_, contact_t)
     push!(SI_, SI_t)
 
-    transmission_node_id = transmission.node_id
-    count_node_incidence = [count(transmission_node_id .== node_id) for node_id ∈ 1:N]
-    n_NODE_incd_[T,:] = count_node_incidence
-    entropy_ = push!(entropy_, entropy(count_node_incidence ./ sum(count_node_incidence), N))
-    var_ = push!(var_, var(count_node_incidence))
+    # transmission_node_id = transmission.node_id
+    # count_node_incidence = [count(transmission_node_id .== node_id) for node_id ∈ 1:N]
+    # n_NODE_incd_[T,:] = count_node_incidence
+    # entropy_ = push!(entropy_, entropy(count_node_incidence ./ sum(count_node_incidence), N))
+    # var_ = push!(var_, var(count_node_incidence))
 
     now_I = ID[state .== 'I']
     push!(
@@ -222,7 +232,7 @@ seed = lpad(seed_number, 4, '0')
 
 fromby = groupby(transmission, :from)
 agent_id = Int64[]
-node_id = Int64[]
+node_id = []
 home = Int64[]
 away = Int64[]
 for agent ∈ fromby
@@ -244,11 +254,12 @@ agent_seconarycases = DataFrame(; agent_id, node_id, case, home, away)
 
 if seed_number != 0 append!(transmission, non_transmission); sort!(transmission, :T) end
 time_evolution = DataFrame(;
-n_S_, n_E_, n_I_, n_R_, n_V_, n_hub_, contact_, SI_, RT_,
-entropy_, var_,
-n_moved_S_, n_moved_E_, n_moved_I_, n_moved_R_, n_moved_V_,
-S_influx_, I_influx_, E_influx_, R_influx_, V_influx_,
-S_outflux_, I_outflux_, E_outflux_, R_outflux_, V_outflux_
+n_S_, n_E_, n_I_, n_R_, n_V_, contact_, RT_,
+# entropy_, var_, SI_,
+# n_hub_,
+# ,n_moved_S_, n_moved_E_, n_moved_I_, n_moved_R_, n_moved_V_
+# ,S_influx_, I_influx_, E_influx_, R_influx_, V_influx_
+# ,S_outflux_, I_outflux_, E_outflux_, R_outflux_, V_outflux_
 )
 
 # count_node_incidence = [count(node_incidence .== node_id) for node_id ∈ 1:N]
@@ -259,15 +270,15 @@ S_outflux_, I_outflux_, E_outflux_, R_outflux_, V_outflux_
 
 summary = DataFrame(Tend = T, Rend = n_R_[T], Vend = n_V_[T], peaktime = peaktime, peaksize = peaksize,
     # incidence5 = incidence5, incidence4 = incidence4, HIR = hub_incidence_rate,
-    incidence_entropy = entropy_[T], incidence_var = var_[T],
+    # incidence_entropy = entropy_[T], incidence_var = var_[T],
     T1 = T1, RT1 = n_R_[T1], VT1 = n_V_[T1],
     home = sum(home), away = sum(away))
 
 # if export_type != :XLSX
-CSV.write("./$folder/$seed ndws.csv", DataFrame(n_NODE_S_, :auto))
-CSV.write("./$folder/$seed ndwi.csv", DataFrame(n_NODE_I_, :auto))
-CSV.write("./$folder/$seed incd.csv", DataFrame(n_NODE_incd_, :auto))
-CSV.write("./$folder/$seed ndwf.csv", DataFrame(n_NODE_S_ .* n_NODE_I_, :auto)) # Force of infection
+# CSV.write("./$folder/$seed ndws.csv", n_NODE_S_)
+# CSV.write("./$folder/$seed ndwi.csv", n_NODE_I_)
+# CSV.write("./$folder/$seed incd.csv", n_NODE_incd)
+# CSV.write("./$folder/$seed ndwf.csv", n_NODE_S_ .* n_NODE_I_) # Force of infection
 CSV.write("./$folder/$seed trms.csv", transmission)
 CSV.write("./$folder/$seed agnt.csv", agent_seconarycases)
 CSV.write("./$folder/$seed tevl.csv", time_evolution)

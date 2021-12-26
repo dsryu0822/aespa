@@ -1,23 +1,22 @@
 include("FigureSetting.jl")
 
-todo = 201:250
+todo = 251:275
 σ_axis = schedules.σ[todo]
 
 default(markeralpha = 0.5, markerstrokewidth = 0,
- xaxis = :log, xticks = 10 .^[-3.,-2.,-1.], yticks = 0:0.2:0.6, ylims = (0,0.7),
- legend = :topleft, size = (600,300),
+ xticks = [0.02, 0.072, 0.1], yticks = 0:0.2:0.6, ylims = (0,0.7),
+ legend = :right, size = (600,300),
  xlabel = L"\sigma", ylabel = L"R(\infty) / n")
 
+하 = plot()
+가가 = plot()
 
-차 = plot()
-카 = plot()
-타 = plot()
+for k ∈ ["00", "0V", "M0", "MV"]
 
 Q₃  = zeros(length(todo))
 M   = zeros(length(todo))
 Q₁  = zeros(length(todo))
 
-for k ∈ ["00", "0V", "M0", "MV"]
 for (sigma, doing) ∈ enumerate(todo)
     scenario = schedules[doing,:]
     cnfg = CSV.read(import_dir * scenario.name * "/cnfg.csv", DataFrame)[1,:]
@@ -31,21 +30,16 @@ for (sigma, doing) ∈ enumerate(todo)
     Q₁[sigma] , M[sigma], Q₃[sigma] = quantile(raw.Rend ./ cnfg.n, [.10, .50, .90])
     
     num_raw = nrow(raw)
-    σs = repeat([cnfg.σ], num_raw)
-    scatter!(차, σs, raw.Rend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
-    if k[[1]] == "M"
-        scatter!(타, σs ./ 10, raw.Rend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
-    else
-        scatter!(타, σs, raw.Rend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
-    end
-
+    σ_vertical = repeat([cnfg.σ], num_raw)
+    scatter!(하, σ_vertical, raw.Rend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
     print(".")
 end
-println(k)
-plot!(카, σ_axis, Q₃, fillrange = Q₁, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
-plot!(카, σ_axis, M, label = label_[k], color = color_[k], markershape = shape_[k], alpha = 0.5)
-end
+plot!(가가, σ_axis, Q₃, fillrange = Q₁, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
+plot!(가가, σ_axis, M, label = label_[k], color = color_[k], markershape = shape_[k], alpha = 0.5)
+plot!(하, σ_axis, Q₃, fillrange = Q₁, linealpha = 0, label = :none, color = color_[k], alpha = 0.2)
+plot!(하, σ_axis, M, label = label_[k], color = color_[k], markershape = shape_[k], alpha = 0.5)
 
-png(차, export_dir * "차.png")
-png(카, export_dir * "카.png")
-png(타, export_dir * "타.png")
+println()
+end
+png(하, export_dir * "하.png")
+png(가가, export_dir * "가가.png")

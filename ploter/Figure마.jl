@@ -1,18 +1,11 @@
 @time include("FigureSetting.jl")
 
+default()
 default(linealpha = 0.5, linewidth = 2, fillalpha = 0.2, 
  yticks = 0:2,
- label = :none, xlabel = L"T", ylabel = L"R_{T}", ylims = (0,2))
+ legend = :none, label = :none, ylabel = L"R_{T}", ylims = (0,2), xlims = (0,200), size = (600,200))
 # todo = (1:50) .+ 0
 
-plot_RT00 = plot(legend = :none, size = (700,300),
- xlabel = L"T", ylabel = L"R_{T}")
-plot_RT0V = plot(legend = :none, size = (700,300),
- xlabel = L"T", ylabel = L"R_{T}")
-plot_RTM0 = plot(legend = :none, size = (700,300),
- xlabel = L"T", ylabel = L"R_{T}")
-plot_RTMV = plot(legend = :none, size = (700,300),
- xlabel = L"T", ylabel = L"R_{T}")
 println("ready")
 
 
@@ -28,10 +21,10 @@ for seed_number ∈ cnfg.first_seed:cnfg.last_seed
     if CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:Tend] < 200
         continue
     end
-    push!(strands00, CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).Rt[1:200])
-    push!(strands0V, CSV.read(import_dir * scenario.name * "/0V" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).Rt[1:200])
-    push!(strandsM0, CSV.read(import_dir * scenario.name * "/M0" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).Rt[1:200])
-    push!(strandsMV, CSV.read(import_dir * scenario.name * "/MV" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).Rt[1:200])
+    push!(strands00, CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).RT_[1:200])
+    push!(strands0V, CSV.read(import_dir * scenario.name * "/0V" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).RT_[1:200])
+    push!(strandsM0, CSV.read(import_dir * scenario.name * "/M0" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).RT_[1:200])
+    push!(strandsMV, CSV.read(import_dir * scenario.name * "/MV" * "/$(lpad(seed_number, 4, '0')) tevl.csv", DataFrame).RT_[1:200])
 end
 
 
@@ -58,28 +51,28 @@ Q05(x) = quantile(x, .05)
 plot_RT00 = plot(summarizer(strands00, median), color = :black)
 plot!(plot_RT00, summarizer(strands00, Q05), label = :none, color = :black,
  fill = summarizer(strands00, Q95), linewidth = 0)
-png(export_dir * "마 00.png")
+# png(export_dir * "마 00.png")
 
 plot_RT0V = plot(summarizer(strands0V, median), color = colorant"#C00000")
 plot!(plot_RT0V, summarizer(strands0V, Q05), label = :none, color = colorant"#C00000",
  fill = summarizer(strands00, Q95), linewidth = 0)
-png(export_dir * "마 0V.png")
+# png(export_dir * "마 0V.png")
 
 plot_RTM0 = plot(summarizer(strandsM0, median), color = colorant"#0070C0")
 plot!(plot_RTM0, summarizer(strandsM0, Q05), label = :none, color = colorant"#0070C0",
  fill = summarizer(strands00, Q95), linewidth = 0)
-png(export_dir * "마 M0.png")
+# png(export_dir * "마 M0.png")
 
-plot_RTMV = plot(summarizer(strandsMV, median), color = colorant"#7030A0")
+plot_RTMV = plot(summarizer(strandsMV, median), color = colorant"#7030A0", xlabel = L"T")
 plot!(plot_RTMV, summarizer(strandsMV, Q05), label = :none, color = colorant"#7030A0",
  fill = summarizer(strandsMV, Q95), linewidth = 0)
-png(export_dir * "마 MV.png")
+# png(export_dir * "마 MV.png")
 
 
 # plot!(plot_RT00, strands00, color = :black, label = :none); png(export_dir * "마 00.png")
 # plot!(plot_RT0V, strands0V, color = colorant"#C00000", label = :none); png(export_dir * "마 0V.png")
 # plot!(plot_RTM0, strandsM0, color = colorant"#0070C0", label = :none); png(export_dir * "마 M0.png")
 # plot!(plot_RTMV, strandsMV, color = colorant"#7030A0", label = :none); png(export_dir * "마 MV.png")
-
+using Plots.PlotMeasures
 plot(plot_RT00, plot_RT0V, plot_RTM0, plot_RTMV, layout = (4,1), size = (800,900))
 png(export_dir * "마.png")

@@ -29,12 +29,12 @@ for (sigma, doing) ∈ enumerate(todo)
         end
         push!(raw, CSV.read(import_dir * scenario.name * "/" * k * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:])
     end
-    # Q₁[sigma] , M[sigma], Q₃[sigma] = quantile(raw.RTend ./ cnfg.n, [.10, .50, .90])
+    # Q₁[sigma] , M[sigma], Q₃[sigma] = quantile(raw.Rend ./ cnfg.n, [.10, .50, .90])
     Q₁[sigma] , M[sigma], Q₃[sigma] = quantile(raw.HIR, [.10, .50, .90])
     
     num_raw = nrow(raw)
     σ_axis = repeat([cnfg.σ], num_raw)
-    # scatter!(plot_bifurcation1, σ_axis, raw.RTend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
+    # scatter!(plot_bifurcation1, σ_axis, raw.Rend ./ cnfg.n, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
     scatter!(plot_bifurcation1, σ_axis, raw.HIR, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
     print(".")
 end

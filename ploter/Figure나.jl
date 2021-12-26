@@ -13,10 +13,10 @@ plot_cluster = plot(legend = :outertopright,
  xlable = L"T_{1}", ylabel = L"R(200)",
  size = (700,500), title = "σ = $(cnfg.σ)")
 
-smry00 = DataFrame(Tend = Int64[], RTend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
-smry0V = DataFrame(Tend = Int64[], RTend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
-smryM0 = DataFrame(Tend = Int64[], RTend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
-smryMV = DataFrame(Tend = Int64[], RTend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
+smry00 = DataFrame(Tend = Int64[], Rend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
+smry0V = DataFrame(Tend = Int64[], Rend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
+smryM0 = DataFrame(Tend = Int64[], Rend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
+smryMV = DataFrame(Tend = Int64[], Rend = Int64[], peaktime = Int64[], peaksize = Int64[], T1 = Int64[], RT1 = Int64[], VT1 = Int64[])
 for seed_number ∈ cnfg.first_seed:cnfg.last_seed
     if CSV.read(import_dir * scenario.name * "/00/" * "$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:Tend] < 200
         continue
