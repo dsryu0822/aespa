@@ -7,9 +7,11 @@
 l = @layout [p1{0.7w} [p2 ; p3]]
 
 function SIR(seed; β = 0.02, μ = 0.2, τ = 0.3)
-binding = MvNormal([1 0; 0 1])
-total_pop = 10000
-state = ['S' for _ in 1:total_pop]
+    L = 1000
+    network_size = L ÷ 5
+    binding = MvNormal((L ÷ 20) * [1 0; 0 1])
+    total_pop = 10^5
+    state = ['S' for _ in 1:total_pop]
 
 n_S_ = Int64[]
 n_E_ = Int64[]
@@ -20,17 +22,15 @@ Random.seed!(seed)
 host = rand(1:total_pop)
 state[host] = 'I'
 
-L = 100
-network_size = 100
 # node_Rloc = L * rand(MvTDist(1,[1 0; 0 1]),network_size)
 
-backbone, _, node_Rloc = euclidean_graph(network_size, 2; seed = 1, L=L, cutoff = 15)
+backbone, _, node_Rloc = euclidean_graph(network_size, 2; seed = 1, L=L, cutoff = 120)
 # backbone = erdos_renyi(network_size, backbone.ne, seed = 1)
 # backbone = barabasi_albert(network_size, 2)
 
 plot_backbone = graphplot(backbone, x = node_Rloc[1,:], y = node_Rloc[2,:], alpha = 0.5,
-                legend = :outerbottom, label = :none)
-scatter!(plot_backbone, node_Rloc[1,:], node_Rloc[2,:], color = :white, label = "Node")
+                legend = :none)
+scatter!(plot_backbone, node_Rloc[1,:], node_Rloc[2,:], color = :white)
 
 agnt_Nloc = rand(1:network_size, total_pop) # Network location
 for _ in 1:5
@@ -66,12 +66,12 @@ animation = @animate for T in 1:maxitr
     agnt_Rloc = node_Rloc[:,agnt_Nloc] .+ rand(binding, total_pop)
 
 
-    sctr = scatter(plot_backbone,
-            agnt_Rloc[1,bit_S], agnt_Rloc[2,bit_S], label = "S",
-            color = :black, ma = 0.5, msw = 0, ms = 2)
-    scatter!(agnt_Rloc[1,bit_R], agnt_Rloc[2,bit_R], label = "R",
-            color = :blue, ma = 0.1, msw = 0, ms = 2)
-    scatter!(agnt_Rloc[1,bit_I], agnt_Rloc[2,bit_I], label = "I",
+    # sctr = scatter(plot_backbone,
+    #         agnt_Rloc[1,bit_S], agnt_Rloc[2,bit_S], label = "S",
+    #         color = :black, ma = 0.5, msw = 0, ms = 2)
+    # scatter!(agnt_Rloc[1,bit_R], agnt_Rloc[2,bit_R], label = "R",
+    #         color = :blue, ma = 0.1, msw = 0, ms = 2)
+    sctr = scatter(plot_backbone, agnt_Rloc[1,bit_I], agnt_Rloc[2,bit_I], label = "I",
             color = :red, ma = 0.5, msw = 0, ms = 3)
     # annotate!(agnt_Rloc[1,bit_I], agnt_Rloc[2,bit_I], "$T", annotationcolor = :red)
 
@@ -83,7 +83,7 @@ animation = @animate for T in 1:maxitr
     # agnt_Rloc = node_Rloc[:,agnt_Nloc] .+ rand(binding, total_pop)     # Real location
 
     kdtree_I = KDTree(agnt_Rloc[:,bit_I])
-    n_contact = length.(inrange(kdtree_I, agnt_Rloc[:,bit_S], 1.0))
+    n_contact = length.(inrange(kdtree_I, agnt_Rloc[:,bit_S], 3.0))
     bit_infected = rand(count(bit_S)) .< 1 .- (1 - β).^n_contact
     state[ID_S[bit_infected]] .= 'E'
 
@@ -92,11 +92,11 @@ animation = @animate for T in 1:maxitr
     infected = ID_E[rand(n_E) .< τ]
     state[infected] .= 'I'
 end
-cd(@__DIR__); pwd()
 return animation
 end
 
-for seed = 1:100
+cd("D:/"); pwd()
+for seed = 1:10
     animation = SIR(seed, β = 0.01)
     if !(animation |> isnothing)
         mp4(animation, "animation $seed.mp4", fps = 10)
