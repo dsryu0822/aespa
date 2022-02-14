@@ -9,3 +9,12 @@ function sufficientN(condition::BitArray)
 end
 
 deep_pop!(array) = isempty(array) ? 0 : pop!(array)
+
+# function global_moving!(LOCATION, style, mobility, n)
+#     if sytle = :euler
+
+#     elseif sytle = :lagrange
+
+#     end
+#     return LOCATION
+# end

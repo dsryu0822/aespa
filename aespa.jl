@@ -4,7 +4,7 @@ excuted_DIR = string(@__DIR__)
 schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule")...)
 
 @time using Crayons
-@time using Random, Distributions, Statistics
+@time using Random, Distributions, Statistics, StatsBase
 @time using Graphs, NearestNeighbors
 
 @time include("src/lemma.jl")
@@ -21,8 +21,11 @@ cd(root); pwd()
 # ------------------------------------------------------------------ setting
 
 export_type = :CSV # :both, :CSV, :XLSX
-doing = parse(Int64, ARGS[1])
-
+if isempty(ARGS)
+    doing = 300
+else
+    doing = parse(Int64, ARGS[1])
+end
 scenario = schedule[doing,:]
 try
     mkpath(root * scenario.name)
@@ -54,9 +57,10 @@ global first_seed = scenario.first_seed
 global last_seed = scenario.last_seed
 
 global ID = 1:n
-global brownian = MvNormal(2, 0.01) # moving process
+global brownian = MvNormal(2, δ) # moving process
 
 if network == 0
+    global metapopulation = :euler
     global N = scenario.N
     global m = 3 # number of network link
     backbone = barabasi_albert(N, m, seed = 0)
@@ -68,12 +72,21 @@ if network == 0
         stress = stress_centrality(backbone)
         ))
 elseif network == -1
+    global metapopulation = :lagrange
     using JLD
     realnetwork = load(excuted_DIR * "/world_wide_flight_network.jld")
     global NODE = Dict(realnetwork["nodes"] .=> realnetwork["adj"])
     global N = length(NODE)
+elseif network == -2
+    global metapopulation = :swap
+    using JLD
+    realnetwork = load(excuted_DIR * "\\world_wide_data-2.jld")
+    global NODE = Dict(realnetwork["nodes"] .=> realnetwork["adj"])
+    global area = Dict(realnetwork["nodes"] .=> sqrt.(realnetwork["area"])/100)
+    global N = length(NODE)
+    global initial_population = realnetwork["population"]
 end
-global NODE_ID = keys(NODE)
+global NODE_ID = convert.(String,keys(NODE)) |> sort
 
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 global recovery_period = Weibull(3, 7.17)

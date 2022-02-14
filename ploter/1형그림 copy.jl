@@ -5,7 +5,7 @@ todo = 291:310
 
 default(markeralpha = 0.5, markerstrokewidth = 0,
  xticks = [0.036, 0.072, 0.1],
- legend = :outerright, size = (600,300), # xaxis = :log,
+ legend = :bottomleft, size = (600,300), xaxis = :log,
  xlabel = L"\sigma", ylabel = L"R(\infty) / n")
 
 일형그림1 = plot()
@@ -22,7 +22,7 @@ for (sigma, doing) ∈ enumerate(todo)
     cnfg = CSV.read(import_dir * scenario.name * "/cnfg.csv", DataFrame)[1,:]
     raw = CSV.read(import_dir * scenario.name * "/00/0001 smry.csv", DataFrame)[[false],:]
     for seed_number ∈ cnfg.first_seed:cnfg.last_seed
-        if CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:Tend] < 50 # cnfg.end_time
+        if CSV.read(import_dir * scenario.name * "/00" * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:Tend] < 10 # cnfg.end_time
             continue
         end
         push!(raw, CSV.read(import_dir * scenario.name * "/" * k * "/$(lpad(seed_number, 4, '0')) smry.csv", DataFrame)[1,:])
@@ -32,7 +32,7 @@ for (sigma, doing) ∈ enumerate(todo)
     end
 
     num_raw = nrow(raw)
-    σ_vertical = repeat([cnfg.σ], num_raw)
+    σ_vertical = repeat([cnfg.β], num_raw)
     scatter!(일형그림1, σ_vertical, raw.Rend, alpha = 0.5, color = color_[k], label = :none, markershape = shape_[k])
     print(".")
 end

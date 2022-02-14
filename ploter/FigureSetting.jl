@@ -6,7 +6,11 @@ over50(ndwi) = vec(maximum(ndwi, dims = 1) .> 50)
 
 schedules = DataFrame(XLSX.readtable("C:/Users/rmsms/OneDrive/lab/aespa//schedule.xlsx", "schedule")...)
 
-ntwk = CSV.read("D:/simulated/ntwk.csv", DataFrame)
+# try
+#     ntwk = CSV.read("D:/simulated/ntwk.csv", DataFrame)
+# finally
+#     print("ntwk load")
+# end
 
 import_dir = "D:/simulated/"
 export_dir = "C:/Users/rmsms/OneDrive/lab/aespa/png/"

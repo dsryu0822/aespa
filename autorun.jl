@@ -1,5 +1,6 @@
-# todo = parse(Int64, ARGS[1]):10:290
-todo = 280:280
+todo = parse(Int64, ARGS[1]):310
+# todo = parse(Int64, ARGS[1]):10:310
+# todo = 280:280
 
 for doing ∈ todo
     println(doing)
