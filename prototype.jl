@@ -4,9 +4,11 @@
 @time using Plots
 @time using Graphs, GraphRecipes
 
-l = @layout [p1{0.7w} [p2 ; p3]]
+l = @layout [p1{0.7w} [p2 ; p3 ; p4]]
 
-function SIR(seed; β = 0.02, μ = 0.2, τ = 0.3)
+function SIR(seed; β = 0.02, μ = 0.2, τ = 0.3,
+    seasonality = false,
+    vaccination = false)
     L = 1000
     network_size = L ÷ 5
     binding = MvNormal((L ÷ 20) * [1 0; 0 1])
@@ -17,6 +19,8 @@ n_S_ = Int64[]
 n_E_ = Int64[]
 n_I_ = Int64[]
 n_R_ = Int64[]
+n_V_ = Int64[]
+n_β_ = []
 Random.seed!(seed)
 
 host = rand(1:total_pop)
@@ -44,6 +48,7 @@ animation = @animate for T in 1:maxitr
     bit_E = state .== 'E'; ID_E = findall(bit_E); n_E = count(bit_E); push!(n_E_, n_E)
     bit_I = state .== 'I'; ID_I = findall(bit_I); n_I = count(bit_I); push!(n_I_, n_I); ID_nonI = findall(.!bit_I);
     bit_R = state .== 'R'; ID_R = findall(bit_R); n_R = count(bit_R); push!(n_R_, n_R)
+    bit_V = state .== 'V'; ID_V = findall(bit_V); n_V = count(bit_V); push!(n_V_, n_V)
     println("T: $T, n_S: $n_S, n_I: $n_I, n_R: $n_R")
     if iszero(n_I)
         if n_R < 100
@@ -51,6 +56,13 @@ animation = @animate for T in 1:maxitr
         else
             break
         end
+    end
+
+    if seasonality != false
+        β = β + 0.0001 * sin(seed + 0.1T)
+        push!(n_β_, β)
+    elseif vaccination
+        state[bit_S .& (rand(total_pop) .< 0.0001)] .= 'V'
     end
 
     moved_nonI = ID_nonI[rand(length(ID_nonI)) .< 0.1]
@@ -77,7 +89,16 @@ animation = @animate for T in 1:maxitr
 
     te_R = plot(n_R_, label = "R", legend = :bottomright, linealpha = 0.5, linewidth = 2, color = :blue, xlims = (1,maxitr))
     te_I = plot(n_I_, label = "I", legend = :topright, linealpha = 0.5, linewidth = 2, color = :red, xlims = (1,maxitr))
-    new = plot(sctr, te_R, te_I, layout = l, size = (1600,900))
+    # new = plot(sctr, te_R, te_I, layout = l, size = (1600,900))
+    if seasonality
+        te_β = plot(n_β_, label = "β", legend = :topright, linealpha = 0.5, linewidth = 2, xlims = (1,maxitr))
+        new = plot(sctr, te_R, te_I, te_β, layout = l, size = (1600,900))
+    elseif vaccination
+        te_V = plot(n_V_, label = "V", legend = :topright, linealpha = 0.5, linewidth = 2, xlims = (1,maxitr))
+        new = plot(sctr, te_R, te_I, te_V, layout = l, size = (1600,900))
+    else
+        new = plot(sctr, te_R, te_I, plot(), layout = l, size = (1600,900))
+    end
 
     # agnt_Nloc = rand.(backbone.fadjlist[agnt_Nloc])
     # agnt_Rloc = node_Rloc[:,agnt_Nloc] .+ rand(binding, total_pop)     # Real location
@@ -96,7 +117,7 @@ return animation
 end
 
 cd("D:/"); pwd()
-for seed = 1:10
+for seed = 5:5
     animation = SIR(seed, β = 0.01)
     if !(animation |> isnothing)
         mp4(animation, "animation $seed.mp4", fps = 10)
