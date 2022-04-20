@@ -24,6 +24,7 @@ function simulation(
         to = []
     )
     non_transmission = copy(transmission)
+    ndws_n_ = DataFrame([[] for _ = countrynames] , countrynames)
 
     ####################################################################
 
@@ -43,11 +44,11 @@ function simulation(
     
     host = rand(ID, number_of_host)
     state[host] .= 'I'
-    LOCATION[host] .= 2935
+    LOCATION[host] .= 2935 # Wuhan, China
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
 
     coordinate = XY[:,LOCATION] + randn(2, n)
-    worldmap = scatter(XY[1,:], XY[2,:], label = "airport")
+    worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
     
 movie = @animate while T < end_time
     T += 1
@@ -64,9 +65,11 @@ movie = @animate while T < end_time
     bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I); ID_I = findall(bit_I)
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
     bit_V = (state .== 'V'); n_V = count(bit_V); push!(n_V_, n_V);
+
+    push!(ndws_n_, [sum(bit_I .&& (country[LOCATION] .== c)) for c in countrynames])
     if n_E + n_I == 0 break end
 
-    println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
+    # println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
 
     moved = (rand(n) .< σ) .&& .!bit_I
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
@@ -126,6 +129,7 @@ summary = DataFrame(
 )
 CSV.write("./$seed trms.csv", transmission)
 CSV.write("./$seed tevl.csv", time_evolution)
+CSV.write("./$seed ndws.csv", ndws_n_)
 CSV.write("./$seed smry.csv", summary, bom = true)
 if n_R_[T] > 1000
     mp4(movie, "./$seed muvi.mp4", fps = 10)

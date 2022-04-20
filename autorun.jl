@@ -1,4 +1,4 @@
-todo = parse(Int64, ARGS[1]):310
+todo = parse(Int64, ARGS[1]):6:30
 # todo = parse(Int64, ARGS[1]):10:310
 # todo = 280:280
 

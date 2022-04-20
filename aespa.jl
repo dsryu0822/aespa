@@ -23,7 +23,7 @@ cd(root); pwd()
 
 export_type = :CSV # :both, :CSV, :XLSX
 if isempty(ARGS)
-    doing = 1
+    doing = 10
 else
     doing = parse(Int64, ARGS[1])
 end
@@ -69,13 +69,14 @@ if network == "data"
     global NODE = realnetwork["adj_encoded"]
     
     data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
-    global N = nrow(data)    
+    global N = nrow(data)
     global NODE_ID = 1:N
     global XY = vcat(data.Longitude', data.Latitude')
     global city = data.City
     global country = data.Country
     global iata = data.IATA
     default(markerstrokewidth = 0, alpha = 0.5, markersize = 3, size = (800,400))
+    countrynames = data.Country |> unique |> sort
 end
 
 @time for seed_number ∈ first_seed:last_seed
