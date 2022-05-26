@@ -52,12 +52,14 @@ global σ = scenario.σ
 # global e_V = scenario.e_V
 global β = scenario.β
 global n = scenario.n
+global temp_code = scenario.temp_code
 global end_time = scenario.end_time
 global first_seed = scenario.first_seed
 global last_seed = scenario.last_seed
 
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 global recovery_period = Weibull(3, 7.17)
+global develop_period = Exponential(100)
 
 global ID = 1:n
 global δ = 0.05

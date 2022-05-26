@@ -35,6 +35,7 @@ function simulation(
     LATENT = fill(-1, n)
     RECOVERY = fill(-1, n)
     TIER = zeros(Int64, n)
+    DEVELOP = [rand(develop_period)]
     
     # LOCATION = rand(NODE_ID, n)
     LOCATION = sample(NODE_ID, Weights(data.indegree), n)
@@ -56,15 +57,27 @@ function simulation(
     
 # movie = @animate 
 while T < end_time
+    # plot_fm = scatter(worldmap, coordinate[1,ID_infectious], coordinate[2,ID_infectious], label = :none,
+    #     markersize = 2)
+    # plot_te = plot()
+    # for x_ in eachcol(n_I_tier)
+    #     plot_te!(x_)
+    # end
+    # plot_2 = plot(plot_fm, plot_te)
     T += 1
 
     LATENT   .-= 1
     RECOVERY .-= 1
+    DEVELOP  .-= 1
     bit_LATENT     = (LATENT   .== 0)
     bit_RECOVERY   = (RECOVERY .== 0)
     state[bit_LATENT  ] .= 'I'
     state[bit_RECOVERY] .= 'R'
     TIER[bit_LATENT .&& (rand(n) .< 0.00001)] .+= 1 # Variant Virus
+    # if (DEVELOP .≤ 0) |> !isempty
+    #     bit_vaccinated = (.!bit_I)
+    #     maximum(DEVELOP .≤ 0)
+    # end
 
     bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
     bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
@@ -74,6 +87,7 @@ while T < end_time
 
     while size(n_I_tier)[2] < maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
+        push!(DEVELOP, rand(develop_period))
     end
     n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
 
@@ -83,16 +97,22 @@ while T < end_time
     println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
     println("                               maximal tier: $(maximum(TIER))")
 
-    moved = (rand(n) .< σ) .&& .!bit_I
+    ## intervention to airplane
+    (T > 100) && (temp_code == 1) ? σ_ = 0.1σ : σ_ = σ
+
+    moved = (rand(n) .< σ_) .&& .!bit_I
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
-    moved = (rand(n) .< σ/100) .&& bit_I
+    moved = (rand(n) .< σ_/100) .&& bit_I
     LOCATION[moved] = rand.(NODE[LOCATION[moved]])
     coordinate = XY[:,LOCATION] + randn(2, n)
 
-    # frame = scatter(worldmap, coordinate[1,ID_infectious], coordinate[2,ID_infectious], label = :none,
-    #     markersize = 2)
-
     for tier in maximum(TIER):-1:1
+        # β_ = β*(1.1^(tier-1))
+        # tier ∈ [2,3,5,7,11,13,17,19] ? β_ = (1 + tier/5)*β : β_ = 0.8β
+        tier == 1 ? β_ = 0.8β : β_ = β
+        tier == 3 ? β_ = 2β : β_ = β
+        tier == 5 ? β_ = 2β : β_ = β
+
         ID_infectious = findall(bit_I .&& (TIER .== tier))
         ID_susceptibl = findall(bit_S .|| (bit_R .&& (TIER .< tier))) # bit_V will be come
     
@@ -101,7 +121,7 @@ while T < end_time
         in_δ = inrange(kdtreeI, coordinate[:,ID_susceptibl], δ)
         contact = length.(in_δ)
     
-        bit_infected = (rand(length(ID_susceptibl)) .< (1 .- (1 - β).^contact))
+        bit_infected = (rand(length(ID_susceptibl)) .< (1 .- (1 - β_).^contact))
         ID_infected = ID_susceptibl[bit_infected]
 
         n_infected = count(bit_infected)
