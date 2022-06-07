@@ -1,7 +1,4 @@
-function simulation(
-    seed_number;
-    vaccin = false,
-    video = false)
+function simulation(seed_number)
 
     Random.seed!(seed_number);
     seed = lpad(seed_number, 4, '0')
@@ -13,8 +10,8 @@ function simulation(
     n_I_ = Int64[]
     n_R_ = Int64[]
     n_V_ = Int64[]
+    n_RECOVERY_ = Int64[]
     n_I_tier = zeros(Int64, end_time, 1)
-
 
     transmission = DataFrame(
         T = Int64[],
@@ -26,7 +23,8 @@ function simulation(
         to = []
     )
     non_transmission = copy(transmission)
-    ndws_n_ = DataFrame([[] for _ = countrynames] , countrynames)
+    ndws_n_I_ = DataFrame([[] for _ = countrynames] , countrynames)
+    ndws_n_RECOVERY_ = DataFrame([[] for _ = countrynames] , countrynames)
 
     ####################################################################
 
@@ -35,7 +33,6 @@ function simulation(
     LATENT = fill(-1, n)
     RECOVERY = fill(-1, n)
     TIER = zeros(Int64, n)
-    DEVELOP = [rand(develop_period)]
     
     # LOCATION = rand(NODE_ID, n)
     LOCATION = sample(NODE_ID, Weights(data.indegree), n)
@@ -53,10 +50,11 @@ function simulation(
     TIER[host] .= 1
 
     coordinate = XY[:,LOCATION] + randn(2, n)
-    worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
+    # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
     
 # movie = @animate 
 while T < end_time
+    T += 1
     # plot_fm = scatter(worldmap, coordinate[1,ID_infectious], coordinate[2,ID_infectious], label = :none,
     #     markersize = 2)
     # plot_te = plot()
@@ -64,20 +62,15 @@ while T < end_time
     #     plot_te!(x_)
     # end
     # plot_2 = plot(plot_fm, plot_te)
-    T += 1
 
     LATENT   .-= 1
     RECOVERY .-= 1
-    DEVELOP  .-= 1
-    bit_LATENT     = (LATENT   .== 0)
-    bit_RECOVERY   = (RECOVERY .== 0)
+    bit_LATENT   = (LATENT   .== 0)
+    bit_RECOVERY = (RECOVERY .== 0)
+
     state[bit_LATENT  ] .= 'I'
     state[bit_RECOVERY] .= 'R'
     TIER[bit_LATENT .&& (rand(n) .< 0.00001)] .+= 1 # Variant Virus
-    # if (DEVELOP .≤ 0) |> !isempty
-    #     bit_vaccinated = (.!bit_I)
-    #     maximum(DEVELOP .≤ 0)
-    # end
 
     bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
     bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
@@ -85,33 +78,49 @@ while T < end_time
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
     bit_V = (state .== 'V'); n_V = count(bit_V); push!(n_V_, n_V);
 
+    T == 1 ? push!(n_RECOVERY_, 0) : push!(n_RECOVERY_, n_RECOVERY_[end] + count(bit_RECOVERY))
+    push!(ndws_n_I_, [sum(bit_I .&& (country[LOCATION] .== c)) for c in countrynames])
+    push!(ndws_n_RECOVERY_, [sum(bit_RECOVERY .&& (country[LOCATION] .== c)) for c in countrynames]) # It has to be cumsumed
+
     while size(n_I_tier)[2] < maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
-        push!(DEVELOP, rand(develop_period))
-    end
-    n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
+    end; n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
 
-    push!(ndws_n_, [sum(bit_I .&& (country[LOCATION] .== c)) for c in countrynames])
     if n_E + n_I == 0 break end
 
-    println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |R:$(n_R_[T]) |V:$(n_V_[T])")
-    println("                               maximal tier: $(maximum(TIER))")
+    println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |RECOVERY:$(n_RECOVERY_[T])")
+    # println("                               maximal tier: $(maximum(TIER))")
 
-    ## intervention to airplane
-    (T > 100) && (temp_code == 1) ? σ_ = 0.1σ : σ_ = σ
-
-    moved = (rand(n) .< σ_) .&& .!bit_I
-    LOCATION[moved] = rand.(NODE[LOCATION[moved]])
-    moved = (rand(n) .< σ_/100) .&& bit_I
-    LOCATION[moved] = rand.(NODE[LOCATION[moved]])
+    bit_moved = ((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I)
+    destination = rand.(NODE[LOCATION[bit_moved]])
+    if T > 5
+        if ismissing(control)
+            bit_destination = ones(Bool, n)
+        elseif control == "US"
+            bit_destination = (country[LOCATION] .== "United States")
+        elseif control == "UK"
+            bit_destination = (country[LOCATION] .== "United Kingdom")
+        elseif control == "KR"
+            bit_destination = (country[LOCATION] .== "Korea, Rep.")
+        elseif control == "CN"
+            bit_destination = (country[LOCATION] .== "China")
+        end
+        bit_blocked = bit_moved .&& ((rand(n) .< guard) .&& bit_destination)
+        source = LOCATION[bit_blocked]
+        
+        LOCATION[bit_moved] = destination
+        LOCATION[bit_blocked] = source
+    else
+        LOCATION[bit_moved] = destination
+    end
     coordinate = XY[:,LOCATION] + randn(2, n)
 
     for tier in maximum(TIER):-1:1
+        tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
         # β_ = β*(1.1^(tier-1))
-        # tier ∈ [2,3,5,7,11,13,17,19] ? β_ = (1 + tier/5)*β : β_ = 0.8β
-        tier == 1 ? β_ = 0.8β : β_ = β
-        tier == 3 ? β_ = 2β : β_ = β
-        tier == 5 ? β_ = 2β : β_ = β
+        # tier == 1 ? β_ = 0.8β : β_ = β
+        # tier == 3 ? β_ = 2β : β_ = β
+        # tier == 5 ? β_ = 2β : β_ = β
 
         ID_infectious = findall(bit_I .&& (TIER .== tier))
         ID_susceptibl = findall(bit_S .|| (bit_R .&& (TIER .< tier))) # bit_V will be come
@@ -154,20 +163,24 @@ while T < end_time
     # end
 end
 
-print(Crayon(foreground = :light_gray), ": $(n_R_[T]), ")
+print(Crayon(foreground = :light_gray), ": $(n_RECOVERY_[T]), ")
 
 if seed_number != 0 append!(transmission, non_transmission); sort!(transmission, :T) end
 time_evolution = DataFrame(;
     n_S_, n_E_, n_I_, n_R_, n_V_
+    , n_RECOVERY_
 # , RT_, contact_, SI_
 )
 
 summary = DataFrame(
-    Tend = T, Rend = n_R_[T], Vend = n_V_[T]
+    Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T]
 )
+ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
+
 CSV.write("./$seed trms.csv", transmission)
 CSV.write("./$seed tevl.csv", time_evolution)
-CSV.write("./$seed ndws.csv", ndws_n_)
+CSV.write("./$seed ndwi.csv", ndws_n_I_)
+CSV.write("./$seed ndwr.csv", ndws_n_RECOVERY_)
 CSV.write("./$seed smry.csv", summary, bom = true)
 CSV.write("./$seed tier.csv", DataFrame(n_I_tier, :auto))
 # if n_R_[T] > 1000
