@@ -13,7 +13,7 @@ schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule").
 
 # ------------------------------------------------------------------ directory
 
-root = "D:/simulated/"
+root = "C:/simulated/"
 if !isdir(root)
     mkpath(root)
 end

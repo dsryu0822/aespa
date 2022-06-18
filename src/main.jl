@@ -85,7 +85,7 @@ while T < end_time
 
     if n_E + n_I == 0 break end
 
-    println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |RECOVERY:$(n_RECOVERY_[T])")
+    # println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |RECOVERY:$(n_RECOVERY_[T])")
     # println("                               maximal tier: $(maximum(TIER))")
 
     bit_passed = ((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I)
