@@ -14,19 +14,20 @@ function simulation(seed_number)
     n_RECOVERY_ = Int64[]
     n_I_tier = zeros(Int64, end_time, 1)
 
-    transmission = DataFrame(
-        T = Int64[],
-        # t = Int64[],
-        country = [],
-        city = [],
-        iata = [],
-        from = [],
-        to = []
-    )
-    non_transmission = copy(transmission)
     ndws_n_I_ = DataFrame([[] for _ = countrynames] , countrynames)
     ndws_n_RECOVERY_ = DataFrame([[] for _ = countrynames] , countrynames)
 
+
+    # transmission = DataFrame(
+    #     T = Int64[],
+    #     # t = Int64[],
+    #     country = [],
+    #     city = [],
+    #     iata = [],
+    #     from = [],
+    #     to = []
+    # )
+    # non_transmission = copy(transmission)
     ####################################################################
 
     T = 0 # Macro timestep
@@ -50,7 +51,7 @@ function simulation(seed_number)
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
     TIER[host] .= 1
 
-    coordinate = XY[:,LOCATION] + randn(2, n)
+    coordinate = XY[:,LOCATION] + (0.01 * randn(2, n))
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
     
 # movie = @animate 
@@ -106,10 +107,10 @@ while T < end_time
         bit_blocked = bit_passed .&& bit_controlled .&& (rand(n) .< blockade)
         LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
     end
-    coordinate = XY[:,LOCATION] + randn(2, n)
+    coordinate = XY[:,LOCATION] + (0.01 * randn(2, n))
 
     for tier in maximum(TIER):-1:1
-        tier ∈ [2,3,5,7,11,13,17,19] ? β_ = 2β : β_ = β
+        tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
         # β_ = β*(1.1^(tier-1))
         # tier == 1 ? β_ = 0.8β : β_ = β
         # tier == 3 ? β_ = 2β : β_ = β
@@ -169,7 +170,11 @@ time_evolution = DataFrame(;
 # , RT_, contact_, SI_
 )
 summary = DataFrame(
-    Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T]
+    Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T],
+    USend = (ndws_n_RECOVERY_."United States")[T],
+    UKend = (ndws_n_RECOVERY_."United Kingdom")[T],
+    KRend = (ndws_n_RECOVERY_."Korea, Rep.")[T],
+    CNend = (ndws_n_RECOVERY_."China")[T]
 )
 ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
 
