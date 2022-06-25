@@ -51,7 +51,7 @@ function simulation(seed_number)
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
     TIER[host] .= 1
 
-    coordinate = XY[:,LOCATION] + (0.01 * randn(2, n))
+    coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
     
 # movie = @animate 
@@ -107,7 +107,7 @@ while T < end_time
         bit_blocked = bit_passed .&& bit_controlled .&& (rand(n) .< blockade)
         LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
     end
-    coordinate = XY[:,LOCATION] + (0.01 * randn(2, n))
+    coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
 
     for tier in maximum(TIER):-1:1
         tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
@@ -166,11 +166,11 @@ if flag_trms
 end
 time_evolution = DataFrame(;
     n_S_, n_E_, n_I_, n_R_, n_V_
-    , n_RECOVERY_, max_tier
+    , n_RECOVERY_
 # , RT_, contact_, SI_
 )
 summary = DataFrame(
-    Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T],
+    Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T], max_tier = max_tier,
     USend = (ndws_n_RECOVERY_."United States")[T],
     UKend = (ndws_n_RECOVERY_."United Kingdom")[T],
     KRend = (ndws_n_RECOVERY_."Korea, Rep.")[T],
