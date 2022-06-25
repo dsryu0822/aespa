@@ -65,6 +65,7 @@ global recovery_period = Weibull(3, 7.17)
 global develop_period = Exponential(100)
 
 global ID = 1:n
+global δ = 0.01
 
 if network == "data"
     using JLD
