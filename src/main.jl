@@ -1,6 +1,7 @@
 function simulation(seed_number)
 
     Random.seed!(seed_number);
+    NODE = copy(NODE0)
     seed = lpad(seed_number, 4, '0')
     flag_trms = false
 
@@ -53,6 +54,8 @@ function simulation(seed_number)
 
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
+
+    bit_blockade = (rand(n) .< blockade)
     
 # movie = @animate 
 while T < end_time
@@ -104,8 +107,13 @@ while T < end_time
         elseif control == "CN"
             bit_controlled = (country[LOCATION] .== "China") .|| (country[LOCATION_copy] .== "China")
         end
-        bit_blocked = bit_passed .&& bit_controlled .&& (rand(n) .< blockade)
+        bit_blocked = bit_passed .&& bit_controlled .&& bit_blockade
         LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
+    elseif T == 50
+        deg = length.(NODE)
+        for node in 1:length(NODE)
+            NODE[node] = NODE[node][rand(deg[node]) .< blockade]
+        end
     end
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
 

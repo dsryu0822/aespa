@@ -70,7 +70,7 @@ global δ = 0.001
 if network == "data"
     using JLD
     realnetwork = load(excuted_DIR * "\\data_link.jld")
-    global NODE = realnetwork["adj_encoded"]
+    global NODE0 = realnetwork["adj_encoded"]
     
     data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
     global N = nrow(data)
