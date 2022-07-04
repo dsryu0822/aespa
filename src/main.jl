@@ -107,9 +107,10 @@ while T < end_time
         elseif control == "CN"
             bit_controlled = (country[LOCATION] .== "China") .|| (country[LOCATION_copy] .== "China")
         end
-        bit_blocked = bit_passed .&& bit_controlled .&& bit_blockade
+        bit_blocked = bit_passed .&& (bit_controlled .|| bit_blockade)
         LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
     elseif T == 50
+        print(".")
         deg = length.(NODE)
         for node in 1:length(NODE)
             NODE[node] = NODE[node][rand(deg[node]) .< blockade]
