@@ -113,7 +113,13 @@ while T < end_time
         print(".")
         deg = length.(NODE)
         for node in 1:length(NODE)
-            NODE[node] = NODE[node][rand(deg[node]) .< blockade]
+            bit_cut = [false]
+            for _ in 1:100
+                bit_cut = (rand(deg[node]) .< blockade)
+                if count(bit_cut) == 0 break end
+            end
+            if count(bit_cut) == 0 bit_cut = ones(deg[node]) end
+            NODE[node] = NODE[node][bit_cut]
         end
     end
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
