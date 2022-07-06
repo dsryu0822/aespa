@@ -58,6 +58,7 @@ function simulation(seed_number)
     bit_blockade = (rand(n) .< blockade)
     
 # movie = @animate 
+print(">")
 while T < end_time
     T += 1
     # plot_fm = scatter(worldmap, coordinate[1,ID_infectious], coordinate[2,ID_infectious], label = :none,
@@ -118,7 +119,7 @@ while T < end_time
                 bit_cut = (rand(deg[node]) .< blockade)
                 if count(bit_cut) == 0 break end
             end
-            if count(bit_cut) == 0 bit_cut = ones(deg[node]) end
+            if count(bit_cut) == 0 bit_cut = ones(Bool, deg[node]) end
             NODE[node] = NODE[node][bit_cut]
         end
     end
