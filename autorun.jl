@@ -5,14 +5,17 @@ using Base.Threads
 
 tic = now()
 
-@threads for doing ∈ 1:51
+@threads for doing ∈ 1:1+20
 # todo = parse(Int64, ARGS[1]):7:102
 # for doing ∈ todo
     println(doing)
     try
         run(`julia aespa.jl $doing`)
     catch LoadError
-        open("../../바탕 화면/error $doing.txt", "w")
+        error_report = open("fail.log", "a")
+        println("$(now()): error in $doing")
+        close(error_report)
+        run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
     end
 end
 toc = now()
