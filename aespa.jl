@@ -44,6 +44,7 @@ end
 
 global number_of_host = 1
 global θ = 10
+global n = 800000
 
 global temp_code = scenario.temp_code
 global network = scenario.network
@@ -54,7 +55,7 @@ global blockade = scenario.blockade
 # global p_V = scenario.p_V
 # global e_V = scenario.e_V
 global β = scenario.β
-global n = scenario.n
+global T0 = scenario.T0
 global end_time = scenario.end_time
 global first_seed = scenario.first_seed
 global last_seed = scenario.last_seed

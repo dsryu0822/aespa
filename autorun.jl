@@ -13,7 +13,7 @@ tic = now()
         run(`julia aespa.jl $doing`)
     catch LoadError
         error_report = open("fail.log", "a")
-        println("$(now()): error in $doing")
+        println(error_report, "$(now()): error in $doing")
         close(error_report)
         run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
     end

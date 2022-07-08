@@ -56,6 +56,7 @@ function simulation(seed_number)
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
 
     bit_blockade = (rand(n) .< blockade)
+    Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
     
 # movie = @animate 
 print(">")
@@ -93,36 +94,41 @@ while T < end_time
     # println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |RECOVERY:$(n_RECOVERY_[T])")
     # println("                               maximal tier: $(maximum(TIER))")
 
-    bit_passed = ((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I)
-    LOCATION_copy = copy(LOCATION)
-    LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    if T > 50
-        if ismissing(control)
-            bit_controlled = ones(Bool, n)
-        elseif control == "US"
-            bit_controlled = (country[LOCATION] .== "United States") .|| (country[LOCATION_copy] .== "United States")
-        elseif control == "UK"
-            bit_controlled = (country[LOCATION] .== "United Kingdom") .|| (country[LOCATION_copy] .== "United Kingdom")
-        elseif control == "KR"
-            bit_controlled = (country[LOCATION] .== "Korea, Rep.") .|| (country[LOCATION_copy] .== "Korea, Rep.")
-        elseif control == "CN"
-            bit_controlled = (country[LOCATION] .== "China") .|| (country[LOCATION_copy] .== "China")
-        end
-        bit_blocked = bit_controlled .&& bit_blockade # .&& bit_passed
-        LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
-    elseif T == 50
-        print(".")
-        deg = length.(NODE)
-        for node in 1:length(NODE)
-            bit_cut = [false]
-            for _ in 1:100
-                bit_cut = (rand(deg[node]) .< blockade)
-                if count(bit_cut) == 0 break end
-            end
-            if count(bit_cut) == 0 bit_cut = ones(Bool, deg[node]) end
-            NODE[node] = NODE[node][bit_cut]
+    if T == T0
+        for u in NODE_ID
+            NODE[u][NODE[u] .∈ Ref_blocked] .= u
         end
     end
+    bit_passed = ((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I)
+    # LOCATION_copy = copy(LOCATION)
+    LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
+    # if T > 50
+    #     if ismissing(control)
+    #         bit_controlled = ones(Bool, n)
+    #     elseif control == "US"
+    #         bit_controlled = (country[LOCATION] .== "United States") .|| (country[LOCATION_copy] .== "United States")
+    #     elseif control == "UK"
+    #         bit_controlled = (country[LOCATION] .== "United Kingdom") .|| (country[LOCATION_copy] .== "United Kingdom")
+    #     elseif control == "KR"
+    #         bit_controlled = (country[LOCATION] .== "Korea, Rep.") .|| (country[LOCATION_copy] .== "Korea, Rep.")
+    #     elseif control == "CN"
+    #         bit_controlled = (country[LOCATION] .== "China") .|| (country[LOCATION_copy] .== "China")
+    #     end
+    #     bit_blocked = bit_controlled .&& bit_blockade # .&& bit_passed
+    #     LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
+    # elseif T == 50
+    #     print(".")
+    #     deg = length.(NODE)
+    #     for node in 1:length(NODE)
+    #         bit_cut = [false]
+    #         for _ in 1:100
+    #             bit_cut = (rand(deg[node]) .< blockade)
+    #             if count(bit_cut) == 0 break end
+    #         end
+    #         if count(bit_cut) == 0 bit_cut = ones(Bool, deg[node]) end
+    #         NODE[node] = NODE[node][bit_cut]
+    #     end
+    # end
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
 
     for tier in maximum(TIER):-1:1
