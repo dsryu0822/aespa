@@ -5,7 +5,7 @@ using Base.Threads
 
 tic = now()
 
-@threads for doing ∈ 1:1+20
+@threads for doing ∈ 1:33
 # todo = parse(Int64, ARGS[1]):7:102
 # for doing ∈ todo
     println(doing)
@@ -26,3 +26,4 @@ println(tictoc, toc)
 println(tictoc, Dates.canonicalize(toc - tic))
 close(tictoc)
 run(`rclone copy success.log sickleft:"OneDrive/바탕 화면"`)
+run(`python mailing.py $Env:naver`)
