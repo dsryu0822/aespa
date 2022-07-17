@@ -55,9 +55,13 @@ function simulation(seed_number)
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
 
-    bit_blockade = (rand(n) .< blockade)
+    bit_movable = .!(rand(n) .< blockade)
     Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
-    
+    NODE2 = copy(NODE0)
+    for u in NODE_ID
+        NODE2[u][NODE2[u] .∈ Ref_blocked] .= u
+    end
+
 # movie = @animate 
 print(">")
 while T < end_time
@@ -94,12 +98,11 @@ while T < end_time
     # println("$T: |E: $(n_E_[T]) |I: $(n_I_[T]) |RECOVERY:$(n_RECOVERY_[T])")
     # println("                               maximal tier: $(maximum(TIER))")
 
-    if T == T0
-        for u in NODE_ID
-            NODE[u][NODE[u] .∈ Ref_blocked] .= u
-        end
+    bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
+    if T ≥ T0
+        NODE = NODE2
+        bit_passed = bit_passed .&& bit_movable
     end
-    bit_passed = ((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I)
     # LOCATION_copy = copy(LOCATION)
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     # if T > 50

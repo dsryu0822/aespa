@@ -5,7 +5,7 @@ using Base.Threads
 
 tic = now()
 
-@threads for doing ∈ 1:(5*11)
+@threads for doing ∈ 1:(3*11)
 # todo = parse(Int64, ARGS[1]):7:102
 # for doing ∈ todo
     println(doing)
@@ -35,7 +35,6 @@ opt = SendOptions(
 #Provide the message body as RFC5322 within an IO
 body = IOBuffer(
   "Date: $now() \r\n" *
-#   "Date: Fri, 18 Oct 2013 21:44:29 +0100\r\n" *
   "From: server2 <rmsmsgood@naver.com>\r\n" *
   "To: dsryu0822@kakao.com\r\n" *
   "Subject: simulation over\r\n" *
