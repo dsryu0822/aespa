@@ -2,9 +2,9 @@
 *.gif
 *.mp4
 *.zip
-*.csv
+# *.csv
 *.html
 *.docx
-*.xlsx
-*.jld
+# *.xlsx
+# *.jld
 REPL.jl

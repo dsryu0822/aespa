@@ -1,13 +1,19 @@
-# todo = parse(Int64, ARGS[1]):6:30
-# todo = parse(Int64, ARGS[1]):10:310
 using Dates
 using Base.Threads
 
 tic = now()
+job = 1:77
 
-@threads for doing ∈ 1:(3*11)
-# todo = parse(Int64, ARGS[1]):7:102
-# for doing ∈ todo
+if Base.ENV["USERDOMAIN"] == "SICKRIGHT"
+  todo = push!(collect(1:10),71)
+elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
+  todo = 11:40
+elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
+  todo = 41:70
+end
+
+# @threads for doing ∈ 1:(3*11)
+@threads for doing ∈ todo
     println(doing)
     try
         run(`julia aespa.jl $doing`)
@@ -15,7 +21,7 @@ tic = now()
         error_report = open("fail.log", "a")
         println(error_report, "$(now()): error in $doing")
         close(error_report)
-        run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
+        # run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
     end
 end
 toc = now()
@@ -25,17 +31,17 @@ println(tictoc, tic)
 println(tictoc, toc)
 println(tictoc, Dates.canonicalize(toc - tic))
 close(tictoc)
-run(`rclone copy success.log sickleft:"OneDrive/바탕 화면"`)
+# run(`rclone copy success.log sickleft:"OneDrive/바탕 화면"`)
 
 using SMTPClient
 opt = SendOptions(
   isSSL = true,
   username = "rmsmsgood",
-  passwd = "e=$(floor(exp(1),digits = 6))")
+  passwd = "$(Base.ENV["naver"])")
 #Provide the message body as RFC5322 within an IO
 body = IOBuffer(
   "Date: $now() \r\n" *
-  "From: server2 <rmsmsgood@naver.com>\r\n" *
+  "From: $(Base.ENV["USERDOMAIN"]) <rmsmsgood@naver.com>\r\n" *
   "To: dsryu0822@kakao.com\r\n" *
   "Subject: simulation over\r\n" *
   "\r\n" *
