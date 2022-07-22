@@ -7,4 +7,5 @@
 *.docx
 # *.xlsx
 # *.jld
+*.log
 REPL.jl

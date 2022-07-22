@@ -2,14 +2,13 @@ using Dates
 using Base.Threads
 
 tic = now()
-job = 1:77
 
-if Base.ENV["USERDOMAIN"] == "SICKRIGHT"
-  todo = push!(collect(1:10),71)
+if Base.ENV["USERDOMAIN"] == "CHAOS2"
+  todo = 1:30
 elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
-  todo = 11:40
-elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
-  todo = 41:70
+  todo = 31:60
+elseif Base.ENV["USERDOMAIN"] == "SICKRIGHT"
+  todo = 61:70
 end
 
 # @threads for doing ∈ 1:(3*11)
