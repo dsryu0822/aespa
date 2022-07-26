@@ -48,7 +48,6 @@ global n = 800000
 
 global temp_code = scenario.temp_code
 global network = scenario.network
-global control = scenario.control
 global σ = scenario.σ
 global blockade = scenario.blockade
 # global e_σ = scenario.e_σ
@@ -59,7 +58,6 @@ global T0 = scenario.T0
 global end_time = scenario.end_time
 global first_seed = scenario.first_seed
 global last_seed = scenario.last_seed
-global control = scenario.control
 
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 global recovery_period = Weibull(3, 7.17)
