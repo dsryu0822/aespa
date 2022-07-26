@@ -8,7 +8,7 @@ if Base.ENV["USERDOMAIN"] == "CHAOS2"
 elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
   todo = 31:60
 elseif Base.ENV["USERDOMAIN"] == "SICKRIGHT"
-  todo = 61:70
+  todo = 61:80
 end
 
 # @threads for doing ∈ 1:(3*11)
