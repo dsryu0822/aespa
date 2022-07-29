@@ -1,7 +1,7 @@
 # @time using Dates
 @time using CSV, XLSX, DataFrames
 excuted_DIR = string(@__DIR__)
-schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule")...)
+schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
 
 @time using Crayons
 @time using Random, Distributions, Statistics, StatsBase
@@ -78,8 +78,12 @@ if network == "data"
     global city = data.City
     global country = data.Country
     global iata = data.IATA
+
     default(markerstrokewidth = 0, alpha = 0.5, markersize = 3, size = (800,400))
     countrynames = data.Country |> unique |> sort
+    
+    a = - 125/30; b = 45a + 75;
+    global atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
 end
 
 @time for seed_number ∈ first_seed:last_seed

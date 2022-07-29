@@ -42,10 +42,11 @@ function simulation(seed_number)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
     # initial_population = [count(LOCATION .== node) for node in NODE_ID]
     # CSV.write("./$seed init.csv", DataFrame(initial_population = initial_population))
-    # scatter(collect(data.indegree), initial_population)
-    # scatter!(coordinate[1,:], coordinate[2,:], label = :none,
-    #     markersize = 1, markercolor = :red)
-    
+
+    # plot(size = (800,400), aspect_ratio = 1)
+    # scatter!(eachrow(XY[:,bit_left])..., msw = 0, alpha = 0.5, label = :none)
+    # scatter!(eachrow(XY[:,.!bit_left])..., msw = 0, alpha = 0.5, label = :none)
+
     host = rand(ID, number_of_host)
     state[host] .= 'I'
     LOCATION[host] .= 2935 # Wuhan, China
@@ -103,46 +104,15 @@ while T < end_time
         NODE = NODE2
         bit_passed = bit_passed .&& bit_movable
     end
-    # LOCATION_copy = copy(LOCATION)
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    # if T > 50
-    #     if ismissing(control)
-    #         bit_controlled = ones(Bool, n)
-    #     elseif control == "US"
-    #         bit_controlled = (country[LOCATION] .== "United States") .|| (country[LOCATION_copy] .== "United States")
-    #     elseif control == "UK"
-    #         bit_controlled = (country[LOCATION] .== "United Kingdom") .|| (country[LOCATION_copy] .== "United Kingdom")
-    #     elseif control == "KR"
-    #         bit_controlled = (country[LOCATION] .== "Korea, Rep.") .|| (country[LOCATION_copy] .== "Korea, Rep.")
-    #     elseif control == "CN"
-    #         bit_controlled = (country[LOCATION] .== "China") .|| (country[LOCATION_copy] .== "China")
-    #     end
-    #     bit_blocked = bit_controlled .&& bit_blockade # .&& bit_passed
-    #     LOCATION[bit_blocked] = LOCATION_copy[bit_blocked]
-    # elseif T == 50
-    #     print(".")
-    #     deg = length.(NODE)
-    #     for node in 1:length(NODE)
-    #         bit_cut = [false]
-    #         for _ in 1:100
-    #             bit_cut = (rand(deg[node]) .< blockade)
-    #             if count(bit_cut) == 0 break end
-    #         end
-    #         if count(bit_cut) == 0 bit_cut = ones(Bool, deg[node]) end
-    #         NODE[node] = NODE[node][bit_cut]
-    #     end
-    # end
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
 
+    for bit_atlantic in [atlantic[LOCATION], .!atlantic[LOCATION]]
     for tier in maximum(TIER):-1:1
         tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
-        # β_ = β*(1.1^(tier-1))
-        # tier == 1 ? β_ = 0.8β : β_ = β
-        # tier == 3 ? β_ = 2β : β_ = β
-        # tier == 5 ? β_ = 2β : β_ = β
 
-        ID_infectious = findall(bit_I .&& (TIER .== tier))
-        ID_susceptibl = findall(bit_S .|| (bit_R .&& (TIER .< tier))) # bit_V will be come
+        ID_infectious = findall(bit_atlantic .&& bit_I .&& (TIER .== tier))
+        ID_susceptibl = findall(bit_atlantic .&& bit_S .|| (bit_R .&& (TIER .< tier))) # bit_V will be come
     
         kdtreeI = KDTree(coordinate[:,ID_infectious])
 
@@ -168,6 +138,7 @@ while T < end_time
                 from = ID_from, to = ID_infected
                 ))
         end
+    end
     end
     if flag_trms unique!(transmission, :to) end
 

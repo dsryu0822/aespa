@@ -4,11 +4,11 @@ using Base.Threads
 tic = now()
 
 if Base.ENV["USERDOMAIN"] == "CHAOS2"
-  todo = 1:30
+  todo = 1:40
 elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
-  todo = 31:60
+  todo = 41:80
 elseif Base.ENV["USERDOMAIN"] == "SICKRIGHT"
-  todo = 61:80
+  todo = 81:100
 end
 
 # @threads for doing ∈ 1:(3*11)
@@ -52,3 +52,5 @@ url = "smtps://smtp.naver.com:465"
 rcpt = ["<dsryu0822@kakao.com>"]
 from = "<rmsmsgood@naver.com>"
 resp = send(url, rcpt, from, body, opt)
+
+run(`7z a C:/simulated_$(Base.ENV["USERDOMAIN"]).7z C:/simulated`)
