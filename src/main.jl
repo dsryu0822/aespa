@@ -18,7 +18,6 @@ function simulation(seed_number)
     ndws_n_I_ = DataFrame([[] for _ = countrynames] , countrynames)
     ndws_n_RECOVERY_ = DataFrame([[] for _ = countrynames] , countrynames)
 
-
     # transmission = DataFrame(
     #     T = Int64[],
     #     # t = Int64[],
@@ -63,17 +62,9 @@ function simulation(seed_number)
         NODE2[u][NODE2[u] .∈ Ref_blocked] .= u
     end
 
-# movie = @animate 
 print(">")
 while T < end_time
     T += 1
-    # plot_fm = scatter(worldmap, coordinate[1,ID_infectious], coordinate[2,ID_infectious], label = :none,
-    #     markersize = 2)
-    # plot_te = plot()
-    # for x_ in eachcol(n_I_tier)
-    #     plot_te!(x_)
-    # end
-    # plot_2 = plot(plot_fm, plot_te)
 
     LATENT   .-= 1; bit_LATENT   = (LATENT   .== 0); state[bit_LATENT  ] .= 'I'
     RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
@@ -100,45 +91,44 @@ while T < end_time
     # println("                               maximal tier: $(maximum(TIER))")
 
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
-    if T ≥ T0
-        NODE = NODE2
-        bit_passed = bit_passed .&& bit_movable
-    end
+    if T == T0 NODE = NODE2 end
+    if T  ≥ T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
 
     for bit_atlantic in [atlantic[LOCATION], .!atlantic[LOCATION]]
-    for tier in maximum(TIER):-1:1
-        tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
+        for tier in maximum(TIER):-1:1
+            tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
 
-        ID_infectious = findall(bit_atlantic .&& bit_I .&& (TIER .== tier))
-        ID_susceptibl = findall(bit_atlantic .&& bit_S .|| (bit_R .&& (TIER .< tier))) # bit_V will be come
-    
-        kdtreeI = KDTree(coordinate[:,ID_infectious])
+            ID_infectious = findall(bit_atlantic .&& bit_I .&& (TIER .== tier))
+            if isempty(ID_infectious) continue end
+            ID_susceptibl = findall(bit_atlantic .&& (bit_S .|| (bit_R .&& (TIER .< tier)))) # bit_V will be come
+            
+            kdtreeI = KDTree(coordinate[:,ID_infectious])
 
-        in_δ = inrange(kdtreeI, coordinate[:,ID_susceptibl], δ)
-        contact = length.(in_δ)
-    
-        bit_infected = (rand(length(ID_susceptibl)) .< (1 .- (1 - β_).^contact))
-        ID_infected = ID_susceptibl[bit_infected]
+            in_δ = inrange(kdtreeI, coordinate[:,ID_susceptibl], δ)
+            contact = length.(in_δ)
+        
+            bit_infected = (rand(length(ID_susceptibl)) .< (1 .- (1 - β_).^contact))
+            ID_infected = ID_susceptibl[bit_infected]
 
-        n_infected = count(bit_infected)
-        state[ID_infected] .= 'E'
-        LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
-        RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
-        TIER[ID_infected] .= tier
+            n_infected = count(bit_infected)
+            state[ID_infected] .= 'E'
+            LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
+            RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
+            TIER[ID_infected] .= tier
 
-        if flag_trms && n_infected > 0
-            ID_from = ID_infectious[deep_pop!.(shuffle.(in_δ))[bit_infected]]
-            append!(transmission, DataFrame(
-                T = T,
-                country = country[LOCATION[ID_infected]],
-                city = city[LOCATION[ID_infected]],
-                iata = iata[LOCATION[ID_infected]],
-                from = ID_from, to = ID_infected
-                ))
+            if flag_trms && n_infected > 0
+                ID_from = ID_infectious[deep_pop!.(shuffle.(in_δ))[bit_infected]]
+                append!(transmission, DataFrame(
+                    T = T,
+                    country = country[LOCATION[ID_infected]],
+                    city = city[LOCATION[ID_infected]],
+                    iata = iata[LOCATION[ID_infected]],
+                    from = ID_from, to = ID_infected
+                    ))
+            end
         end
-    end
     end
     if flag_trms unique!(transmission, :to) end
 
@@ -153,7 +143,13 @@ while T < end_time
     # end
 end
 max_tier = maximum(TIER)
-print(Crayon(foreground = :light_gray), ": $(n_RECOVERY_[T]), ")
+if n_RECOVERY_[T] > n
+    print(Crayon(foreground = :red), " $seed,")
+elseif n_RECOVERY_[T] > n/1000
+    print(Crayon(foreground = :yellow), " $seed,")
+else
+    print(Crayon(foreground = :green), " $seed,")
+end
 
 if flag_trms
     append!(transmission, non_transmission)
