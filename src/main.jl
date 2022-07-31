@@ -150,6 +150,7 @@ elseif n_RECOVERY_[T] > n/1000
 else
     print(Crayon(foreground = :green), " $seed,")
 end
+Crayon(reset = true)
 
 if flag_trms
     append!(transmission, non_transmission)
