@@ -68,7 +68,6 @@ global city = data.City
 global country = data.Country
 global iata = data.IATA
 
-default(markerstrokewidth = 0, alpha = 0.5, markersize = 3, size = (800,400))
 countrynames = data.Country |> unique |> sort
 
 a = - 125/30; b = 45a + 75;
