@@ -1,36 +1,47 @@
+using XLSX
+while true
+  try
+    XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")
+    break
+  catch SystemError
+    print(".")
+  end
+end
+
 using Dates
 using Base.Threads
 
 tic = now()
 
 if Base.ENV["USERDOMAIN"] == "CHAOS2"
-  todo = 1:40
+  todo = 1:100
 elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
-  todo = 41:80
+  todo = 101:200
 elseif Base.ENV["USERDOMAIN"] == "SICKRIGHT"
-  todo = 81:100
+  todo = 201:220
 end
 
-# @threads for doing ∈ 1:(3*11)
 @threads for doing ∈ todo
-    println(doing)
+    print("$doing ")
     try
         run(`julia aespa.jl $doing`)
     catch LoadError
         error_report = open("fail.log", "a")
-        println(error_report, "$(now()): error in $doing")
+        println(error_report, "$(Base.ENV["USERDOMAIN"]) $(now()): error in $doing")
         close(error_report)
-        # run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
     end
 end
 toc = now()
 
-tictoc = open("success.log","w")
-println(tictoc, tic)
-println(tictoc, toc)
-println(tictoc, Dates.canonicalize(toc - tic))
-close(tictoc)
+# tictoc = open("success.log","w")
+# println(tictoc, tic)
+# println(tictoc, toc)
+# println(tictoc, Dates.canonicalize(toc - tic))
+# close(tictoc)
 # run(`rclone copy success.log sickleft:"OneDrive/바탕 화면"`)
+if isfile("fail.log")
+  run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
+end
 
 using SMTPClient
 opt = SendOptions(

@@ -1,22 +1,21 @@
-# @time using Dates
-@time using CSV, XLSX, DataFrames
+@time begin
+using XLSX, CSV, DataFrames
 excuted_DIR = string(@__DIR__)
 schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
 
-@time using Crayons
-@time using Random, Distributions, Statistics, StatsBase
-@time using Graphs, NearestNeighbors
-@time using Plots
+using Crayons
+using Random, Distributions, Statistics, StatsBase
+using Graphs, NearestNeighbors
+using JLD
+# using Plots
 
-@time include("src/lemma.jl")
-@time include("src/main.jl")
+include("src/lemma.jl")
+include("src/main.jl")
 
 # ------------------------------------------------------------------ directory
 
 root = "C:/simulated/"
-if !isdir(root)
-    mkpath(root)
-end
+if !isdir(root) mkpath(root) end
 cd(root); pwd()
 
 # ------------------------------------------------------------------ setting
@@ -30,10 +29,6 @@ end
 scenario = schedule[doing,:]
 try
     mkpath(root * scenario.name)
-    # mkpath(root * scenario.name * "/00")
-    # mkpath(root * scenario.name * "/0V")
-    # mkpath(root * scenario.name * "/M0")
-    # mkpath(root * scenario.name * "/MV")
     CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
     cd(root * scenario.name)
 catch
@@ -45,19 +40,15 @@ end
 global number_of_host = 1
 global θ = 10
 global n = 800000
+global end_time = 500
 
 global temp_code = scenario.temp_code
-global network = scenario.network
-global σ = scenario.σ
-global blockade = scenario.blockade
-# global e_σ = scenario.e_σ
-# global p_V = scenario.p_V
-# global e_V = scenario.e_V
-global β = scenario.β
-global T0 = scenario.T0
-global end_time = scenario.end_time
 global first_seed = scenario.first_seed
 global last_seed = scenario.last_seed
+global blockade = scenario.blockade / 100
+global T0 = scenario.T0
+global σ = scenario.σ
+global β = scenario.β
 
 global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
 global recovery_period = Weibull(3, 7.17)
@@ -66,27 +57,26 @@ global develop_period = Exponential(100)
 global ID = 1:n
 global δ = 0.01
 
-if network == "data"
-    using JLD
-    realnetwork = load(excuted_DIR * "\\data_link.jld")
-    global NODE0 = realnetwork["adj_encoded"]
-    
-    data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
-    global N = nrow(data)
-    global NODE_ID = 1:N
-    global XY = vcat(data.Longitude', data.Latitude')
-    global city = data.City
-    global country = data.Country
-    global iata = data.IATA
+realnetwork = load(excuted_DIR * "\\data_link.jld")
+global NODE0 = realnetwork["adj_encoded"]
 
-    default(markerstrokewidth = 0, alpha = 0.5, markersize = 3, size = (800,400))
-    countrynames = data.Country |> unique |> sort
-    
-    a = - 125/30; b = 45a + 75;
-    global atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
+data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
+global N = nrow(data)
+global NODE_ID = 1:N
+global XY = convert.(Float16, vcat(data.Longitude', data.Latitude'))
+global city = data.City
+global country = data.Country
+global iata = data.IATA
+
+default(markerstrokewidth = 0, alpha = 0.5, markersize = 3, size = (800,400))
+countrynames = data.Country |> unique |> sort
+
+a = - 125/30; b = 45a + 75;
+global atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
 end
+# print("$doing ")
 
-@time for seed_number ∈ first_seed:last_seed
+for seed_number ∈ first_seed:last_seed
         simulation(
         seed_number)
 end

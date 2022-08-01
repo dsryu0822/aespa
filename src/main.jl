@@ -1,11 +1,6 @@
-function simulation(seed_number)
-
-    Random.seed!(seed_number);
-    NODE = copy(NODE0)
+function simulation(seed_number::Int64)
     seed = lpad(seed_number, 4, '0')
     flag_trms = false
-
-    ####################################################################
 
     n_S_ = Int64[]
     n_E_ = Int64[]
@@ -17,6 +12,8 @@ function simulation(seed_number)
 
     ndws_n_I_ = DataFrame([[] for _ = countrynames] , countrynames)
     ndws_n_RECOVERY_ = DataFrame([[] for _ = countrynames] , countrynames)
+
+    ####################################################################
 
     # transmission = DataFrame(
     #     T = Int64[],
@@ -35,34 +32,36 @@ function simulation(seed_number)
     LATENT = fill(-1, n)
     RECOVERY = fill(-1, n)
     TIER = zeros(Int64, n)
-    
+   
+    Random.seed!(seed_number);
+    Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
+
     # LOCATION = rand(NODE_ID, n)
+    NODE = copy(NODE0)
     LOCATION = sample(NODE_ID, Weights(data.indegree), n)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
     # initial_population = [count(LOCATION .== node) for node in NODE_ID]
     # CSV.write("./$seed init.csv", DataFrame(initial_population = initial_population))
 
     # plot(size = (800,400), aspect_ratio = 1)
-    # scatter!(eachrow(XY[:,bit_left])..., msw = 0, alpha = 0.5, label = :none)
-    # scatter!(eachrow(XY[:,.!bit_left])..., msw = 0, alpha = 0.5, label = :none)
+    # scatter!(eachrow(XY[:,atlantic])..., msw = 0, alpha = 0.5, label = :none)
+    # scatter!(eachrow(XY[:,.!atlantic])..., msw = 0, alpha = 0.5, label = :none)
 
     host = rand(ID, number_of_host)
     state[host] .= 'I'
+    TIER[host]  .=  1
     LOCATION[host] .= 2935 # Wuhan, China
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
-    TIER[host] .= 1
 
-    coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
+    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
 
     bit_movable = .!(rand(n) .< blockade)
-    Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
     NODE2 = copy(NODE0)
     for u in NODE_ID
         NODE2[u][NODE2[u] .∈ Ref_blocked] .= u
     end
 
-print(">")
 while T < end_time
     T += 1
 
@@ -91,16 +90,17 @@ while T < end_time
     # println("                               maximal tier: $(maximum(TIER))")
 
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
-    if T == T0 NODE = NODE2 end
-    if T  ≥ T0 bit_passed = bit_passed .&& bit_movable end
+    if T == T0       NODE = NODE2                      end
+    if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate = XY[:,LOCATION] + (0.1 * randn(2, n))
+    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
 
     for bit_atlantic in [atlantic[LOCATION], .!atlantic[LOCATION]]
+        bit_attacked = zeros(Bool, n)
         for tier in maximum(TIER):-1:1
-            tier ∈ [2,3,5,7,11,13,17,19] ? β_ = β : β_ = 2β
+            β_ = (tier ∈ [2,3,5,7,11,13,17,19] ? β : 2β)
 
-            ID_infectious = findall(bit_atlantic .&& bit_I .&& (TIER .== tier))
+            ID_infectious = findall(bit_atlantic .&& (bit_I .&& (TIER .== tier)))
             if isempty(ID_infectious) continue end
             ID_susceptibl = findall(bit_atlantic .&& (bit_S .|| (bit_R .&& (TIER .< tier)))) # bit_V will be come
             
@@ -143,31 +143,30 @@ while T < end_time
     # end
 end
 max_tier = maximum(TIER)
-if n_RECOVERY_[T] > n
-    print(Crayon(foreground = :red), " $seed,")
+
+if n_RECOVERY_[T] > n/10
+    print(Crayon(foreground = :red), "$seed-$blockade")
 elseif n_RECOVERY_[T] > n/1000
-    print(Crayon(foreground = :yellow), " $seed,")
+    print(Crayon(foreground = :yellow), "$seed-$blockade")
 else
-    print(Crayon(foreground = :green), " $seed,")
+    print(Crayon(foreground = :green), "$seed-$blockade")
 end
-Crayon(reset = true)
+print(Crayon(reset = true), " ")
 
 if flag_trms
     append!(transmission, non_transmission)
     sort!(transmission, :T)
     CSV.write("./$seed trms.csv", transmission)
 end
-time_evolution = DataFrame(;
-    n_S_, n_E_, n_I_, n_R_, n_V_
-    , n_RECOVERY_
-# , RT_, contact_, SI_
-)
+time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
+
 summary = DataFrame(
     Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T], max_tier = max_tier,
     USend = (ndws_n_RECOVERY_."United States")[T],
     UKend = (ndws_n_RECOVERY_."United Kingdom")[T],
     KRend = (ndws_n_RECOVERY_."Korea, Rep.")[T],
-    CNend = (ndws_n_RECOVERY_."China")[T]
+    CNend = (ndws_n_RECOVERY_."China")[T],
+    pandemic = (((ndws_n_RECOVERY_."China")[T] / n_RECOVERY_[T]) > 0.5 ? 1 : 0)
 )
 ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
 
@@ -176,8 +175,4 @@ CSV.write("./$seed ndwi.csv", ndws_n_I_)
 CSV.write("./$seed ndwr.csv", ndws_n_RECOVERY_)
 CSV.write("./$seed smry.csv", summary, bom = true)
 CSV.write("./$seed tier.csv", DataFrame(n_I_tier, :auto))
-# if n_R_[T] > 1000
-#     mp4(movie, "./$seed muvi.mp4", fps = 10)
-#     png(plot(n_I_, label = "I"), "./$seed tevl.png")
-# end
 end
