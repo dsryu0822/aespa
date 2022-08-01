@@ -13,9 +13,9 @@ using Base.Threads
 
 tic = now()
 
-if Base.ENV["USERDOMAIN"] == "CHAOS2"
+if Base.ENV["USERDOMAIN"] == "CHAOS1"
   todo = 1:100
-elseif Base.ENV["USERDOMAIN"] == "CHAOS1"
+elseif Base.ENV["USERDOMAIN"] == "CHAOS2"
   todo = 101:200
 elseif Base.ENV["USERDOMAIN"] == "SICKRIGHT"
   todo = 201:220
