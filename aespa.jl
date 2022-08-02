@@ -4,9 +4,9 @@ excuted_DIR = string(@__DIR__)
 schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
 
 using Crayons
-using Random, Distributions, Statistics, StatsBase
-using Graphs, NearestNeighbors
-using JLD
+using Random, Distributions, StatsBase
+using NearestNeighbors, GLM#, Graphs
+using JLD2
 # using Plots
 
 include("src/lemma.jl")
@@ -69,13 +69,12 @@ global country = data.Country
 global iata = data.IATA
 
 countrynames = data.Country |> unique |> sort
+degree = [sum(data.indegree[data.Country .== c]) for c in countrynames]
 
 a = - 125/30; b = 45a + 75;
 global atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
 end
-# print("$doing ")
 
 for seed_number ∈ first_seed:last_seed
-        simulation(
-        seed_number)
+    simulation(seed_number)
 end

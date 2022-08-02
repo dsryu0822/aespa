@@ -95,14 +95,24 @@ while T < end_time
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
 
-    for bit_atlantic in [atlantic[LOCATION], .!atlantic[LOCATION]]
-        bit_attacked = zeros(Bool, n)
+    bit_atlantic = atlantic[LOCATION]
+    bit_wuhan = (LOCATION .== 2935)
+    bit_china = (country[LOCATION] .== "China")
+
+    flag_wuhan = false
+    for bit_actual ∈ [bit_china, bit_atlantic, .!bit_atlantic]
+        if count(bit_I .&& .!bit_wuhan) |> iszero
+            flag_wuhan = true
+        else
+            continue
+        end
+
         for tier in maximum(TIER):-1:1
             β_ = (tier ∈ [2,3,5,7,11,13,17,19] ? β : 2β)
 
-            ID_infectious = findall(bit_atlantic .&& (bit_I .&& (TIER .== tier)))
+            ID_infectious = findall(bit_actual .&& (bit_I .&& (TIER .== tier)))
             if isempty(ID_infectious) continue end
-            ID_susceptibl = findall(bit_atlantic .&& (bit_S .|| (bit_R .&& (TIER .< tier)))) # bit_V will be come
+            ID_susceptibl = findall(bit_actual .&& (bit_S .|| (bit_R .&& (TIER .< tier)))) # bit_V will be come
             
             kdtreeI = KDTree(coordinate[:,ID_infectious])
 
@@ -118,17 +128,19 @@ while T < end_time
             RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
             TIER[ID_infected] .= tier
 
-            if flag_trms && n_infected > 0
-                ID_from = ID_infectious[deep_pop!.(shuffle.(in_δ))[bit_infected]]
-                append!(transmission, DataFrame(
-                    T = T,
-                    country = country[LOCATION[ID_infected]],
-                    city = city[LOCATION[ID_infected]],
-                    iata = iata[LOCATION[ID_infected]],
-                    from = ID_from, to = ID_infected
-                    ))
-            end
+            # if flag_trms && n_infected > 0
+            #     ID_from = ID_infectious[deep_pop!.(shuffle.(in_δ))[bit_infected]]
+            #     append!(transmission, DataFrame(
+            #         T = T,
+            #         country = country[LOCATION[ID_infected]],
+            #         city = city[LOCATION[ID_infected]],
+            #         iata = iata[LOCATION[ID_infected]],
+            #         from = ID_from, to = ID_infected
+            #         ))
+            # end
         end
+        if flag_wuhan break end
+        
     end
     if flag_trms unique!(transmission, :to) end
 
@@ -142,37 +154,55 @@ while T < end_time
     #     end
     # end
 end
+ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
+n_I_tier = DataFrame(n_I_tier, :auto)
 max_tier = maximum(TIER)
+slope = 0
 
-if n_RECOVERY_[T] > n/10
-    print(Crayon(foreground = :red), "$seed-$blockade")
-elseif n_RECOVERY_[T] > n/1000
-    print(Crayon(foreground = :yellow), "$seed-$blockade")
+pandemic = (((ndws_n_RECOVERY_."China")[T] / n_RECOVERY_[T]) < 0.5)
+
+if pandemic
+    print(Crayon(foreground = :red), "$seed-($blockade)")
+elseif n_R_[T] < 2000
+    print(Crayon(foreground = :yellow), "$seed-($blockade)")
 else
-    print(Crayon(foreground = :green), "$seed-$blockade")
+    print(Crayon(foreground = :green), "$seed-($blockade)")
 end
 print(Crayon(reset = true), " ")
+
+if pandemic
+    DATA = DataFrame(
+        log_degree = log10.(degree),
+        log_R = log10.(collect(ndws_n_RECOVERY_[T,:]))
+    )
+    DATA = DATA[DATA.log_R .> 2,:]
+    (_, slope) = coef(lm(@formula(log_R ~ log_degree), DATA))
+else
+    DATA = DataFrame()
+end
+
+time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
+
+# summary = DataFrame(
+#     Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T],
+#     max_tier = max_tier,
+#     pandemic = pandemic,
+#     slope = slope,
+# )
+
+jldsave("$seed smry.jld2"; time_evolution, n_I_tier, DATA,
+        max_tier, pandemic, slope, T, R = n_RECOVERY_[T])
+
+# CSV.write("./$seed smry.csv", summary, bom = true)
+# CSV.write("./$seed tevl.csv", time_evolution)
+# CSV.write("./$seed tier.csv", n_I_tier)
+# CSV.write("./$seed ndwi.csv", ndws_n_I_)
+# CSV.write("./$seed ndwr.csv", ndws_n_RECOVERY_)
 
 if flag_trms
     append!(transmission, non_transmission)
     sort!(transmission, :T)
     CSV.write("./$seed trms.csv", transmission)
 end
-time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
 
-summary = DataFrame(
-    Tend = T, Rend = n_R_[T], Vend = n_V_[T], Recovery = n_RECOVERY_[T], max_tier = max_tier,
-    USend = (ndws_n_RECOVERY_."United States")[T],
-    UKend = (ndws_n_RECOVERY_."United Kingdom")[T],
-    KRend = (ndws_n_RECOVERY_."Korea, Rep.")[T],
-    CNend = (ndws_n_RECOVERY_."China")[T],
-    pandemic = (((ndws_n_RECOVERY_."China")[T] / n_RECOVERY_[T]) > 0.5 ? 1 : 0)
-)
-ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
-
-CSV.write("./$seed tevl.csv", time_evolution)
-CSV.write("./$seed ndwi.csv", ndws_n_I_)
-CSV.write("./$seed ndwr.csv", ndws_n_RECOVERY_)
-CSV.write("./$seed smry.csv", summary, bom = true)
-CSV.write("./$seed tier.csv", DataFrame(n_I_tier, :auto))
 end
