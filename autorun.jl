@@ -39,9 +39,6 @@ toc = now()
 # println(tictoc, Dates.canonicalize(toc - tic))
 # close(tictoc)
 # run(`rclone copy success.log sickleft:"OneDrive/바탕 화면"`)
-if isfile("fail.log")
-  run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
-end
 
 using SMTPClient
 opt = SendOptions(
@@ -65,3 +62,11 @@ from = "<rmsmsgood@naver.com>"
 resp = send(url, rcpt, from, body, opt)
 
 run(`7z a C:/Temp/simulated_$(Base.ENV["USERDOMAIN"]).7z C:/simulated`)
+
+if isfile("fail.log")
+  try
+    run(`rclone copy fail.log sickleft:"OneDrive/바탕 화면"`)
+  catch LoadError
+    @warn "Network Error!"
+  end
+end
