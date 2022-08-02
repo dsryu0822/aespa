@@ -157,6 +157,7 @@ end
 ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
 n_I_tier = DataFrame(n_I_tier, :auto)
 max_tier = maximum(TIER)
+R = n_RECOVERY_[T]
 
 pandemic = (((ndws_n_RECOVERY_."China")[T] / n_RECOVERY_[T]) < 0.5)
 
@@ -190,7 +191,7 @@ time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
 # )
 
 jldsave("$seed smry.jld2"; time_evolution, n_I_tier, DATA,
-        max_tier, pandemic, slope, T, R = n_RECOVERY_[T])
+        max_tier, pandemic, slope, T, R)
 
 # CSV.write("./$seed smry.csv", summary, bom = true)
 # CSV.write("./$seed tevl.csv", time_evolution)
