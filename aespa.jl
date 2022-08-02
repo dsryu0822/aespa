@@ -54,6 +54,7 @@
 
     realnetwork = jldopen(excuted_DIR * "\\data_link.jld2")
     NODE0 = realnetwork["adj_encoded"]
+    close(realnetwork)
 
     data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
     N = nrow(data)
