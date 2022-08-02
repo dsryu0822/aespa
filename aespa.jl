@@ -1,78 +1,73 @@
 @time begin
-using XLSX, CSV, DataFrames
-excuted_DIR = string(@__DIR__)
-schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
+    using XLSX, CSV, DataFrames
+    excuted_DIR = string(@__DIR__)
+    schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
 
-using Crayons
-using Random, Distributions, StatsBase
-using NearestNeighbors, GLM#, Graphs
-using JLD2
-# using Plots
+    using Crayons, Dates
+    using Random, Distributions, StatsBase
+    using NearestNeighbors, GLM
+    using JLD2
 
-include("src/lemma.jl")
-include("src/main.jl")
+    # include("src/lemma.jl")
+    include("src/main.jl")
 
-# ------------------------------------------------------------------ directory
+    # ------------------------------------------------------------------ directory
 
-root = "C:/simulated/"
-if !isdir(root) mkpath(root) end
-cd(root); pwd()
+    root = "C:/simulated/"
+    if !ispath(root) mkpath(root) end
+    if !ispath("C:/saved/") mkpath("C:/saved/") end
 
-# ------------------------------------------------------------------ setting
+    # ------------------------------------------------------------------ setting
 
-export_type = :CSV # :both, :CSV, :XLSX
-if isempty(ARGS)
-    doing = 10
-else
-    doing = parse(Int64, ARGS[1])
-end
-scenario = schedule[doing,:]
-try
-    mkpath(root * scenario.name)
-    CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
+    doing = isempty(ARGS) ? 10 : parse(Int64, ARGS[1])
+    scenario = schedule[doing,:]
+    if !ispath(root * scenario.name)
+        mkpath(root * scenario.name)
+        CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
+        preview = open(root * scenario.name * "/prvw.csv", "a")
+        println(preview, "seed,time,max_tier,pandemic,slope,T,R")
+        close(preview)
+    end
     cd(root * scenario.name)
-catch
-    @warn "some error occur!"
-end
 
-# ------------------------------------------------------------------ parameters
+    # ------------------------------------------------------------------ parameters
 
-global number_of_host = 1
-global θ = 10
-global n = 800000
-global end_time = 500
+    number_of_host = 1
+    θ = 10
+    n = 800000
+    end_time = 500
 
-global temp_code = scenario.temp_code
-global first_seed = scenario.first_seed
-global last_seed = scenario.last_seed
-global blockade = scenario.blockade / 100
-global T0 = scenario.T0
-global σ = scenario.σ
-global β = scenario.β
+    temp_code = scenario.temp_code
+    first_seed = scenario.first_seed
+    last_seed = scenario.last_seed
+    blockade = scenario.blockade / 100
+    T0 = scenario.T0
+    σ = scenario.σ
+    β = scenario.β
 
-global latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
-global recovery_period = Weibull(3, 7.17)
-global develop_period = Exponential(100)
+    latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
+    recovery_period = Weibull(3, 7.17)
+    # develop_period = Exponential(100)
 
-global ID = 1:n
-global δ = 0.01
+    ID = 1:n
+    δ = 0.01
 
-realnetwork = load(excuted_DIR * "\\data_link.jld")
-global NODE0 = realnetwork["adj_encoded"]
+    realnetwork = jldopen(excuted_DIR * "\\data_link.jld2")
+    NODE0 = realnetwork["adj_encoded"]
 
-data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
-global N = nrow(data)
-global NODE_ID = 1:N
-global XY = convert.(Float16, vcat(data.Longitude', data.Latitude'))
-global city = data.City
-global country = data.Country
-global iata = data.IATA
+    data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
+    N = nrow(data)
+    NODE_ID = 1:N
+    XY = convert.(Float16, vcat(data.Longitude', data.Latitude'))
+    country = data.Country
+    # city = data.City
+    # iata = data.IATA
 
-countrynames = data.Country |> unique |> sort
-degree = [sum(data.indegree[data.Country .== c]) for c in countrynames]
+    countrynames = data.Country |> unique |> sort
+    degree = [sum(data.indegree[data.Country .== c]) for c in countrynames]
 
-a = - 125/30; b = 45a + 75;
-global atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
+    a = - 125/30; b = 45a + 75;
+    atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
 end
 
 for seed_number ∈ first_seed:last_seed

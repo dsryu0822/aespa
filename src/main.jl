@@ -35,6 +35,7 @@ function simulation(seed_number::Int64)
    
     Random.seed!(seed_number);
     Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
+    bit_movable = .!(rand(n) .< blockade)
 
     # LOCATION = rand(NODE_ID, n)
     NODE = copy(NODE0)
@@ -56,11 +57,8 @@ function simulation(seed_number::Int64)
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
     # worldmap = scatter(XY[1,:], XY[2,:], label = "airport", legend = :bottomleft)
 
-    bit_movable = .!(rand(n) .< blockade)
-    NODE2 = copy(NODE0)
-    for u in NODE_ID
-        NODE2[u][NODE2[u] .∈ Ref_blocked] .= u
-    end
+    NODE_blocked = copy(NODE0)
+    for u in NODE_ID NODE_blocked[u][NODE_blocked[u] .∈ Ref_blocked] .= u end
 
 while T < end_time
     T += 1
@@ -90,7 +88,7 @@ while T < end_time
     # println("                               maximal tier: $(maximum(TIER))")
 
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
-    if T == T0       NODE = NODE2                      end
+    if T == T0       NODE = NODE_blocked               end
     if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
@@ -99,15 +97,17 @@ while T < end_time
     bit_wuhan = (LOCATION .== 2935)
     bit_china = (country[LOCATION] .== "China")
 
+    phase = 0
     flag_wuhan = false
     for bit_actual ∈ [bit_china, bit_atlantic, .!bit_atlantic]
+        phase += 1
         if count(bit_I .&& .!bit_wuhan) |> iszero
             flag_wuhan = true
-        else
+        elseif phase == 1
             continue
         end
 
-        for tier in maximum(TIER):-1:1
+        for tier in 1:maximum(TIER)
             β_ = (tier ∈ [2,3,5,7,11,13,17,19] ? β : 2β)
 
             ID_infectious = findall(bit_actual .&& (bit_I .&& (TIER .== tier)))
@@ -157,7 +157,6 @@ end
 ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
 n_I_tier = DataFrame(n_I_tier, :auto)
 max_tier = maximum(TIER)
-slope = 0
 
 pandemic = (((ndws_n_RECOVERY_."China")[T] / n_RECOVERY_[T]) < 0.5)
 
@@ -173,12 +172,12 @@ print(Crayon(reset = true), " ")
 if pandemic
     DATA = DataFrame(
         log_degree = log10.(degree),
-        log_R = log10.(collect(ndws_n_RECOVERY_[T,:]))
-    )
+        log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
     DATA = DATA[DATA.log_R .> 2,:]
     (_, slope) = coef(lm(@formula(log_R ~ log_degree), DATA))
 else
     DATA = DataFrame()
+    slope = 0
 end
 
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
@@ -198,6 +197,10 @@ jldsave("$seed smry.jld2"; time_evolution, n_I_tier, DATA,
 # CSV.write("./$seed tier.csv", n_I_tier)
 # CSV.write("./$seed ndwi.csv", ndws_n_I_)
 # CSV.write("./$seed ndwr.csv", ndws_n_RECOVERY_)
+
+preview = open("prvw.log", "a")
+println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R")
+close(preview)
 
 if flag_trms
     append!(transmission, non_transmission)

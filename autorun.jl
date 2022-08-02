@@ -61,7 +61,7 @@ rcpt = ["<dsryu0822@kakao.com>"]
 from = "<rmsmsgood@naver.com>"
 resp = send(url, rcpt, from, body, opt)
 
-run(`7z a C:/Temp/simulated_$(Base.ENV["USERDOMAIN"]).7z C:/simulated`)
+run(`7z a C:/saved/simulated_$(Base.ENV["USERDOMAIN"]).7z C:/simulated`)
 
 if isfile("fail.log")
   try
