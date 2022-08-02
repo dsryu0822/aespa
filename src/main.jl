@@ -199,7 +199,7 @@ jldsave("$seed smry.jld2"; time_evolution, n_I_tier, DATA,
 # CSV.write("./$seed ndwi.csv", ndws_n_I_)
 # CSV.write("./$seed ndwr.csv", ndws_n_RECOVERY_)
 
-preview = open("prvw.log", "a")
+preview = open("prvw.csv", "a")
 println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R")
 close(preview)
 
