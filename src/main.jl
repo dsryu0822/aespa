@@ -129,7 +129,7 @@ ndwr = collect(ndws_n_RECOVERY_[end,:])
 n_I_tier = DataFrame(n_I_tier, :auto)
 max_tier = maximum(TIER)
 R = n_RECOVERY_[T]
-V = n_RECOVERY_[T]
+V = n_V_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
 
 DATA = DataFrame(log_degree = log10.(degree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
