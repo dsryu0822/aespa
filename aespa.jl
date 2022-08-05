@@ -19,12 +19,13 @@
 
     # ------------------------------------------------------------------ setting
 
-    doing = isempty(ARGS) ? 50 : parse(Int64, ARGS[1])
+    doing = isempty(ARGS) ? 45 : parse(Int64, ARGS[1])
     scenario = schedule[doing,:]
     if !ispath(root * scenario.name)
         mkpath(root * scenario.name)
         CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
-        preview = open(root * scenario.name * "/prvw.csv", "a")
+        preview = open(root * scenario.name * "/cnfg.csv", "a")
+        println(preview, "")
         println(preview, "seed,time,max_tier,pandemic,slope,T,R")
         close(preview)
     end
@@ -36,18 +37,18 @@
     θ = 10
     n = 800000
     end_time = 500
+    T0 = 50
 
     temp_code = scenario.temp_code
     first_seed = scenario.first_seed
     last_seed = scenario.last_seed
     blockade = scenario.blockade / 100
-    T0 = scenario.T0
     σ = scenario.σ
     β = scenario.β
+    D = scenario.D # period of vaccin develop
 
     latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
     recovery_period = Weibull(3, 7.17)
-    # develop_period = Exponential(100)
 
     ID = 1:n
     δ = 0.01

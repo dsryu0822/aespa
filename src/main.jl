@@ -9,6 +9,7 @@ function simulation(seed_number::Int64)
     n_V_ = Int64[]
     n_RECOVERY_ = Int64[]
     n_I_tier = zeros(Int64, end_time, 1)
+    n_V_tier = zeros(Int64, end_time, 1)
 
     ndws_n_I_ = DataFrame([[] for _ = countrynames] , countrynames)
     ndws_n_RECOVERY_ = DataFrame([[] for _ = countrynames] , countrynames)
@@ -19,6 +20,7 @@ function simulation(seed_number::Int64)
     LATENT = fill(-1, n)
     RECOVERY = fill(-1, n)
     TIER = zeros(Int64, n)
+    T_D = [end_time] # Timing of vaccin develop
    
     Random.seed!(seed_number);
     Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
@@ -60,11 +62,22 @@ while T < end_time
 
     while size(n_I_tier)[2] < maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
+        n_V_tier = [n_V_tier zeros(Int64, end_time, 1)]
+        push!(T_D, T + D)
     end
     n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
+    n_V_tier[T, :] = [count(bit_V .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
 
     if n_E + n_I == 0 break end
 
+
+    for (tier, t_d) in enumerate(T_D)
+        bit_vaccinated = (bit_I .&& bit_E .&& (TIER .< tier) .&& (rand(n) .< 0.01))
+        if T > t_d
+            state[bit_vaccinated] .= 'V'
+            TIER[bit_vaccinated] .= tier
+        end
+    end
 
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
@@ -91,7 +104,7 @@ while T < end_time
 
             ID_infectious = findall(bit_actual .&& (bit_I .&& (TIER .== tier)))
             if isempty(ID_infectious) continue end
-            ID_susceptibl = findall(bit_actual .&& (bit_S .|| (bit_R .&& (TIER .< tier)))) # bit_V will be come
+            ID_susceptibl = findall(bit_actual .&& (bit_S .|| ((bit_R .|| bit_V) .&& (TIER .< tier))))
             
             kdtreeI = KDTree(coordinate[:,ID_infectious])
 
@@ -116,6 +129,7 @@ ndwr = collect(ndws_n_RECOVERY_[end,:])
 n_I_tier = DataFrame(n_I_tier, :auto)
 max_tier = maximum(TIER)
 R = n_RECOVERY_[T]
+V = n_RECOVERY_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
 
 DATA = DataFrame(log_degree = log10.(degree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
@@ -137,11 +151,14 @@ print(Crayon(reset = true), " ")
 
 (_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA)) : (0,0)
 
-jldsave("$seed smry.jld2"; time_evolution, n_I_tier, log_degree, log_R,
-        max_tier, pandemic, slope, T, R, ndwr, NODE_blocked)
+jldsave("$seed rslt.jld2";
+        max_tier, pandemic, slope, T, R, V, ndwr, # NODE_blocked,
+        time_evolution, n_I_tier, n_V_tier,
+        log_degree, log_R
+        )
 
-preview = open("prvw.csv", "a")
-println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R")
+preview = open("cnfg.csv", "a")
+println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R,$V")
 close(preview)
         
 # summary = DataFrame(
