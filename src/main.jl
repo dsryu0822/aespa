@@ -72,7 +72,7 @@ while T < end_time
 
 
     for (tier, t_d) in enumerate(T_D)
-        bit_vaccinated = (bit_I .&& bit_E .&& (TIER .< tier) .&& (rand(n) .< 0.01))
+        bit_vaccinated = (.!(bit_I .&& bit_E) .&& (TIER .< tier) .&& (rand(n) .< 0.01))
         if T > t_d
             state[bit_vaccinated] .= 'V'
             TIER[bit_vaccinated] .= tier
@@ -147,6 +147,7 @@ elseif n_R_[T] > 1000
 else
     print(Crayon(foreground = :green), "$seed-($blockade)")
 end
+print(",$V")
 print(Crayon(reset = true), " ")
 
 (_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA)) : (0,0)
