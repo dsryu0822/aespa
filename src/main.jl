@@ -183,7 +183,7 @@ jldsave("$seed rslt.jld2";
         )
 
 preview = open("cnfg.csv", "a")
-println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R,$V")
+println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R")
 close(preview)
         
 # summary = DataFrame(
