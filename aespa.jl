@@ -1,4 +1,4 @@
-@time begin
+begin
     using XLSX, CSV, DataFrames
     excuted_DIR = string(@__DIR__)
     schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
@@ -33,11 +33,6 @@
 
     # ------------------------------------------------------------------ parameters
 
-    number_of_host = 1
-    θ = 10
-    n = 800000
-    end_time = 500
-    T0 = 50
 
     temp_code = scenario.temp_code
     first_seed = scenario.first_seed
@@ -47,31 +42,35 @@
     β = scenario.β
     D = scenario.D # period of vaccin develop
 
-    latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
-    recovery_period = Weibull(3, 7.17)
-
-    ID = 1:n
-    δ = 0.01
-
     realnetwork = jldopen(excuted_DIR * "\\data_link.jld2")
-    NODE0 = realnetwork["adj_encoded"]
+        NODE0 = realnetwork["adj_encoded"]
     close(realnetwork)
 
     data = CSV.read(excuted_DIR * "\\data_node.csv",DataFrame)
     N = nrow(data)
-    NODE_ID = 1:N
     XY = convert.(Float16, vcat(data.Longitude', data.Latitude'))
     country = data.Country
-    # city = data.City
-    # iata = data.IATA
-
     countrynames = data.Country |> unique |> sort
-    degree = [sum(data.indegree[data.Country .== c]) for c in countrynames]
+    indegree = [sum(data.indegree[data.Country .== c]) for c in countrynames]
 
     a = - 125/30; b = 45a + 75;
     atlantic = XY[2,:] .< (a .* XY[1,:]) .+ b
-end
-
-for seed_number ∈ first_seed:last_seed
-    simulation(seed_number)
+    
+    print("$doing ")
+    for seed_number ∈ first_seed:last_seed
+        simulation(
+            seed_number
+            , blockade
+            , σ
+            , β
+            , D
+            , NODE0
+            , N
+            , XY
+            , country
+            , countrynames
+            , indegree
+            , atlantic
+        )
+    end
 end

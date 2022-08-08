@@ -1,5 +1,27 @@
-function simulation(seed_number::Int64)
+function simulation(seed_number::Int64
+    , blockade
+    , σ
+    , β
+    , D
+    , NODE0
+    , N
+    , XY
+    , country
+    , countrynames
+    , indegree
+    , atlantic
+)
 
+    number_of_host = 1
+    n = 800000
+    end_time = 500
+    T0 = 50
+
+    latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
+    recovery_period = Weibull(3, 7.17)
+
+    ID = 1:n
+    δ = 0.01
     seed = lpad(seed_number, 4, '0')
 
     n_S_ = Int64[]
@@ -23,11 +45,11 @@ function simulation(seed_number::Int64)
     T_D = [end_time] # Timing of vaccin develop
    
     Random.seed!(seed_number);
-    Ref_blocked = Ref(NODE_ID[rand(length(NODE_ID)) .< blockade])
+    Ref_blocked = Ref((1:N)[rand(length(1:N)) .< blockade])
     bit_movable = .!(rand(n) .< blockade)
 
     NODE = copy(NODE0)
-    LOCATION = sample(NODE_ID, Weights(data.indegree), n)
+    LOCATION = sample(1:N, Weights(data.indegree), n)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
 
     host = rand(ID, number_of_host)
@@ -39,7 +61,7 @@ function simulation(seed_number::Int64)
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
 
     NODE_blocked = copy(NODE0)
-    for u in NODE_ID NODE_blocked[u][NODE_blocked[u] .∈ Ref_blocked] .= u end
+    for u in 1:N NODE_blocked[u][NODE_blocked[u] .∈ Ref_blocked] .= u end
 
 
 while T < end_time
@@ -72,7 +94,7 @@ while T < end_time
 
 
     for (tier, t_d) in enumerate(T_D)
-        bit_vaccinated = (.!(bit_I .&& bit_E) .&& (TIER .< tier) .&& (rand(n) .< 0.01))
+        bit_vaccinated = ((TIER .< tier) .&& (rand(n) .< 0.01))
         if T > t_d
             state[bit_vaccinated] .= 'V'
             TIER[bit_vaccinated] .= tier
@@ -93,10 +115,12 @@ while T < end_time
     flag_wuhan = false
     for bit_actual ∈ [bit_china, bit_atlantic, .!bit_atlantic]
         phase += 1
-        if count(bit_I .&& .!bit_wuhan) |> iszero
-            flag_wuhan = true
-        elseif phase == 1
-            continue
+        if phase == 1
+            if count(bit_I .&& .!bit_wuhan) |> iszero
+                flag_wuhan = true
+            else
+                continue
+            end
         end
 
         for tier in 1:maximum(TIER)
@@ -132,7 +156,7 @@ R = n_RECOVERY_[T]
 V = n_V_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
 
-DATA = DataFrame(log_degree = log10.(degree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
+DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
 DATA = DATA[DATA.log_R .> 2,:]
 log_degree = DATA.log_degree
      log_R = DATA.log_R
