@@ -2,7 +2,7 @@ function simulation(seed_number::Int64
     , blockade
     , σ
     , β
-    , D
+    # , D
     , NODE0
     , N
     , XY
@@ -42,7 +42,7 @@ function simulation(seed_number::Int64
     LATENT = fill(-1, n)
     RECOVERY = fill(-1, n)
     TIER = zeros(Int64, n)
-    T_D = [end_time] # Timing of vaccin develop
+    # T_D = [end_time] # Timing of vaccin develop
    
     Random.seed!(seed_number);
     Ref_blocked = Ref((1:N)[rand(length(1:N)) .< blockade])
@@ -84,22 +84,22 @@ while T < end_time
 
     while size(n_I_tier)[2] < maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
-        n_V_tier = [n_V_tier zeros(Int64, end_time, 1)]
-        push!(T_D, T + D)
+        # n_V_tier = [n_V_tier zeros(Int64, end_time, 1)]
+        # push!(T_D, T + D)
     end
     n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
-    n_V_tier[T, :] = [count(bit_V .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
+    # n_V_tier[T, :] = [count(bit_V .&& (TIER .== tier)) for tier in 1:maximum(TIER)]'
 
     if n_E + n_I == 0 break end
 
 
-    for (tier, t_d) in enumerate(T_D)
-        bit_vaccinated = ((TIER .< tier) .&& (rand(n) .< 0.01))
-        if T > t_d
-            state[bit_vaccinated] .= 'V'
-            TIER[bit_vaccinated] .= tier
-        end
-    end
+    # for (tier, t_d) in enumerate(T_D)
+    #     bit_vaccinated = ((TIER .< tier) .&& (rand(n) .< 0.01))
+    #     if T > t_d
+    #         state[bit_vaccinated] .= 'V'
+    #         TIER[bit_vaccinated] .= tier
+    #     end
+    # end
 
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
@@ -153,7 +153,7 @@ ndwr = collect(ndws_n_RECOVERY_[end,:])
 n_I_tier = DataFrame(n_I_tier, :auto)
 max_tier = maximum(TIER)
 R = n_RECOVERY_[T]
-V = n_V_[T]
+# V = n_V_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
 
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
@@ -171,14 +171,14 @@ elseif n_R_[T] > 1000
 else
     print(Crayon(foreground = :green), "$seed-($blockade)")
 end
-print(",$V")
+# print(",$V")
 print(Crayon(reset = true), " ")
 
 (_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA)) : (0,0)
 
 jldsave("$seed rslt.jld2";
-        max_tier, pandemic, slope, T, R, V, ndwr, # NODE_blocked,
-        time_evolution, n_I_tier, n_V_tier,
+        max_tier, pandemic, slope, T, R, ndwr, # NODE_blocked, V,
+        time_evolution, n_I_tier, #n_V_tier,
         log_degree, log_R
         )
 

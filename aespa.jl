@@ -40,7 +40,7 @@ begin
     blockade = scenario.blockade / 100
     σ = scenario.σ
     β = scenario.β
-    D = scenario.D # period of vaccin develop
+    # D = scenario.D # period of vaccin develop
 
     realnetwork = jldopen(excuted_DIR * "\\data_link.jld2")
         NODE0 = realnetwork["adj_encoded"]
@@ -63,7 +63,7 @@ begin
             , blockade
             , σ
             , β
-            , D
+            # , D
             , NODE0
             , N
             , XY
