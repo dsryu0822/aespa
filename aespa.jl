@@ -58,6 +58,13 @@ begin
     
     print("$doing ")
     for seed_number ∈ first_seed:last_seed
+
+        Random.seed!(seed_number);
+        Ref_blocked = Ref((1:N)[rand(N) .< blockade])
+        
+        NODE_blocked = copy(NODE0)
+        for u in 1:N NODE_blocked[u][NODE_blocked[u] .∈ Ref_blocked] .= u end
+        
         simulation(
             seed_number
             , blockade
@@ -65,6 +72,7 @@ begin
             , β
             # , D
             , NODE0
+            , NODE_blocked
             , N
             , XY
             , country

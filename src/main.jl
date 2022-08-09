@@ -4,6 +4,7 @@ function simulation(seed_number::Int64
     , β
     # , D
     , NODE0
+    , NODE_blocked
     , N
     , XY
     , country
@@ -45,7 +46,6 @@ function simulation(seed_number::Int64
     # T_D = [end_time] # Timing of vaccin develop
    
     Random.seed!(seed_number);
-    Ref_blocked = Ref((1:N)[rand(length(1:N)) .< blockade])
     bit_movable = .!(rand(n) .< blockade)
 
     NODE = copy(NODE0)
@@ -59,10 +59,6 @@ function simulation(seed_number::Int64
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
 
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
-
-    NODE_blocked = copy(NODE0)
-    for u in 1:N NODE_blocked[u][NODE_blocked[u] .∈ Ref_blocked] .= u end
-
 
 while T < end_time
     T += 1
