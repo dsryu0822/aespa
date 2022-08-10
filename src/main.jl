@@ -151,6 +151,7 @@ max_tier = maximum(TIER)
 R = n_RECOVERY_[T]
 # V = n_V_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_V_, n_RECOVERY_)
+network_parity = mod(sum(length.(NODE_blocked)),2)
 
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
 DATA = DATA[DATA.log_R .> 2,:]
@@ -175,7 +176,7 @@ print(Crayon(reset = true), " ")
 jldsave("$seed rslt.jld2";
         max_tier, pandemic, slope, T, R, ndwr, # NODE_blocked, V,
         time_evolution, n_I_tier, #n_V_tier,
-        log_degree, log_R
+        log_degree, log_R, network_parity
         )
 
 preview = open("cnfg.csv", "a")
