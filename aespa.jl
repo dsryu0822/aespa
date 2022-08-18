@@ -65,8 +65,9 @@ begin
         NODE_blocked = deepcopy(NODE0)
         for u in 1:N NODE_blocked[u][NODE_blocked[u] .∈ Ref_blocked] .= u end
         
+        for soil ∈ 0:1000:9000
         simulation(
-            seed_number
+            soil + seed_number
             , blockade
             , σ
             , β
@@ -80,5 +81,6 @@ begin
             , indegree
             , atlantic
         )
+        end
     end
 end
