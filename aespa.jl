@@ -19,7 +19,7 @@ begin
 
     # ------------------------------------------------------------------ setting
 
-    doing = isempty(ARGS) ? 45 : parse(Int64, ARGS[1])
+    doing = isempty(ARGS) ? 1 : parse(Int64, ARGS[1])
     scenario = schedule[doing,:]
     if !ispath(root * scenario.name)
         mkpath(root * scenario.name)

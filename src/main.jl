@@ -36,11 +36,11 @@ function simulation(seed_number::Int64
 
 
     T = 0 # Macro timestep
-    state = fill('S', n) # using SEIR model
-    LATENT = fill(-1, n)
+    state    = fill('S', n) # using SEIR model
+    LATENT   = fill(-1, n)
     RECOVERY = fill(-1, n)
-    TIER = fill(-1, n)
-    STRAIN = zeros(n)
+    TIER     = fill(-1, n)
+    STRAIN   = zeros(Int64, n)
    
     Random.seed!(seed_number);
     bit_movable = .!(rand(n) .< blockade)
@@ -49,33 +49,36 @@ function simulation(seed_number::Int64
     LOCATION = sample(1:N, Weights(data.indegree), n)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
 
-    host = rand(1:n, number_of_host)
-    state[host] .= 'I'
-    TIER[host]  .=  0
+             host   = rand(1:n, number_of_host)
+       state[host] .= 'I'
+        TIER[host] .=  0
     LOCATION[host] .= 2935 # Wuhan, China
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
-    STRAIN[host] = host
+      STRAIN[host]  = host
 
-    BD = [1 host[1] 0 0] # birth-death matrix, [T strain tier birth/death] 0 is birth, 1 is death
+    BD = [1 host[1] 0 2935] # birth-death matrix, [T strain tier location] location 0 means death
     pregenogram = [0 => host[1]]
     alive_strain = [host[1]]
 
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
 
+    bits_C = [(country[LOCATION] .== c) for c in countrynames]
+    
 while T < end_time
     T += 1
 
     LATENT   .-= 1; bit_LATENT   = (LATENT   .== 0); state[bit_LATENT  ] .= 'I'
     RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
+                             state[alive_strain ∩ findall(bit_RECOVERY)] .= 'X' # exception, coding issue
 
-    arise_strain = findall(bit_LATENT .&& (rand(n) .< 0.00001))
-    TIER[arise_strain] .+= 1 # Variant Virus
-    STRAIN[arise_strain] .= arise_strain # Variant Virus
-    for strain in arise_strain
-        BD = vcat(BD, [T strain TIER[strain] 0])
+    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00001))
+    append!(pregenogram, STRAIN[new_strain] .=> new_strain)
+    append!(alive_strain, new_strain)
+    TIER[new_strain] .+= 1 # Variant Virus
+    STRAIN[new_strain] .= new_strain # Variant Virus
+    for strain in new_strain
+        BD = vcat(BD, [T strain TIER[strain] LOCATION[strain]])
     end
-    append!(pregenogram, STRAIN[arise_strain] .=> arise_strain)
-    append!(alive_strain, arise_strain)
 
     bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
     bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
@@ -83,22 +86,25 @@ while T < end_time
     bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
 
     T == 1 ? push!(n_RECOVERY_, 0) : push!(n_RECOVERY_, n_RECOVERY_[end] + count(bit_RECOVERY))
-    push!(ndws_n_I_, [sum(bit_I .&& (country[LOCATION] .== c)) for c in countrynames])
-    push!(ndws_n_RECOVERY_, [sum(bit_RECOVERY .&& (country[LOCATION] .== c)) for c in countrynames]) # It has to be cumsumed
+    push!(       ndws_n_I_, [sum(       bit_I .&& c) for c in bits_C])
+    push!(ndws_n_RECOVERY_, [sum(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
 
-    while size(n_I_tier)[2] < (maximum(TIER)+1)
+    while size(n_I_tier)[2] ≤ maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
     end
     n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 0:maximum(TIER)]'
 
-    lost_strain = setdiff(alive_strain, unique(STRAIN[bit_E .|| bit_I]))
+    lost_strain = setdiff(alive_strain, STRAIN[bit_E .|| bit_I])
     for strain in lost_strain
-        BD = vcat(BD, [T strain TIER[strain] 1])
+        BD = vcat(BD, [T strain TIER[strain] 0])
     end
     setdiff!(alive_strain, lost_strain)
 
     if n_E + n_I == 0 break end
 
+    println(T)
+    display(BD)
+    println()
 
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
@@ -136,23 +142,27 @@ while T < end_time
             contact = length.(in_δ)
         
             bit_infected = (rand(length(ID_susceptibl)) .< (1 .- (1 - β_).^contact))
-            ID_infected = ID_susceptibl[bit_infected]
-
             n_infected = count(bit_infected)
-            state[ID_infected] .= 'E'
-            LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
+
+                     ID_infected   = ID_susceptibl[bit_infected]
+               state[ID_infected] .= 'E'
+              LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
             RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
-            TIER[ID_infected] .= tier
-            STRAIN[ID_infected] .= strain
+                TIER[ID_infected] .= tier
+              STRAIN[ID_infected] .= strain
         end
         if flag_wuhan break end
         
     end
 end
+for strain in alive_strain
+    BD = vcat(BD, [T strain TIER[strain] 0])
+end
+
 ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
 ndwr = collect(ndws_n_RECOVERY_[end,:])
 max_tier = maximum(TIER)
-n_I_tier = DataFrame(n_I_tier, "gen" .* string.(0:max_tier))
+# n_I_tier = DataFrame(n_I_tier, "gen" .* string.(0:max_tier))
 R = n_RECOVERY_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_RECOVERY_)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
@@ -161,9 +171,6 @@ DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndws_n_RE
 DATA = DATA[DATA.log_R .> 2,:]
 log_degree = DATA.log_degree
      log_R = DATA.log_R
-for strain in alive_strain
-    BD = vcat(BD, [T strain TIER[strain] 1])
-end
     
 pandemic = nrow(DATA) > 10
 
