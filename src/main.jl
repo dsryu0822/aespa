@@ -102,10 +102,7 @@ while T < end_time
 
     if n_E + n_I == 0 break end
 
-    println(T)
-    display(BD)
-    println()
-
+    
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
     if T >= T0 bit_passed = bit_passed .&& bit_movable end
