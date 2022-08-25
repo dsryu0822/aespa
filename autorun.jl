@@ -64,10 +64,10 @@ end
 
 run(`7z a C:/saved/simulated_$(Base.ENV["USERDOMAIN"]).7z C:/simulated`)
 
-if isfile("fail.log")
-  try
-    run(`rclone copy $(@__DIR__)/fail.log sickleft:"OneDrive/바탕 화면"`)
-  catch LoadError
-    @warn "Network Error!"
-  end
-end
+# if isfile("fail.log")
+#   try
+#     run(`rclone copy $(@__DIR__)/fail.log sickleft:"OneDrive/바탕 화면"`)
+#   catch LoadError
+#     @warn "Network Error!"
+#   end
+# end

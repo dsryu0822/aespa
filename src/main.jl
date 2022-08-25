@@ -1,4 +1,5 @@
 function simulation(seed_number::Int64
+    , flag_test
     , blockade
     , σ
     , β
@@ -71,7 +72,7 @@ while T < end_time
     RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
                              state[alive_strain ∩ findall(bit_RECOVERY)] .= 'X' # exception, coding issue
 
-    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00001))
+    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00002))
     append!(pregenogram, STRAIN[new_strain] .=> new_strain)
     append!(alive_strain, new_strain)
     TIER[new_strain] .+= 1 # Variant Virus
@@ -80,10 +81,10 @@ while T < end_time
         BD = vcat(BD, [T strain TIER[strain] LOCATION[strain]])
     end
 
-    bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
-    bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
-    bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I);
-    bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
+    @inbounds bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
+    @inbounds bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
+    @inbounds bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I);
+    @inbounds bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
 
     T == 1 ? push!(n_RECOVERY_, 0) : push!(n_RECOVERY_, n_RECOVERY_[end] + count(bit_RECOVERY))
     push!(       ndws_n_I_, [sum(       bit_I .&& c) for c in bits_C])
@@ -147,6 +148,7 @@ while T < end_time
             RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
                 TIER[ID_infected] .= tier
               STRAIN[ID_infected] .= strain
+            if flag_test println("$T: $n_I") end
         end
         if flag_wuhan break end
         

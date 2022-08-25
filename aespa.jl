@@ -20,6 +20,7 @@ begin
     # ------------------------------------------------------------------ setting
 
     doing = isempty(ARGS) ? 1 : parse(Int64, ARGS[1])
+    flag_test = isempty(ARGS)
     scenario = schedule[doing,:]
     if !ispath(root * scenario.name)
         mkpath(root * scenario.name)
@@ -67,6 +68,7 @@ begin
         
         simulation(
             seed_number
+            , flag_test
             , blockade
             , σ
             , β
