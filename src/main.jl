@@ -72,7 +72,7 @@ while T < end_time
     RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
                              state[alive_strain ∩ findall(bit_RECOVERY)] .= 'X' # exception, coding issue
 
-    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00002))
+    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00005))
     append!(pregenogram, STRAIN[new_strain] .=> new_strain)
     append!(alive_strain, new_strain)
     TIER[new_strain] .+= 1 # Variant Virus
