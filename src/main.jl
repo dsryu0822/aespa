@@ -167,7 +167,6 @@ time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_RECOVERY_)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
 
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
-DATA = DATA[DATA.log_R .> 2,:]
 log_degree = DATA.log_degree
      log_R = DATA.log_R
     
@@ -182,7 +181,7 @@ else
 end
 print(Crayon(reset = true), " ")
 
-(_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA)) : (0,0)
+(_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 2,:])) : (0,0)
 
 jldsave("$seed rslt.jld2";
         max_tier, pandemic, slope, T, R, ndwr, # NODE_blocked, V,
