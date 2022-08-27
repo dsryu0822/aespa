@@ -158,20 +158,18 @@ for strain in alive_strain
     BD = vcat(BD, [T strain TIER[strain] 0])
 end
 
-ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
-ndwr = collect(ndws_n_RECOVERY_[end,:])
 max_tier = maximum(TIER)
-# n_I_tier = DataFrame(n_I_tier, "gen" .* string.(0:max_tier))
-R = n_RECOVERY_[T]
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_RECOVERY_)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
 
-DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndws_n_RECOVERY_[T,:])))
+ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
+ndwr = collect(ndws_n_RECOVERY_[end,:])
+R = n_RECOVERY_[T]
+DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwr))
 log_degree = DATA.log_degree
      log_R = DATA.log_R
+  pandemic = count(log_R .> 2) > 10
     
-pandemic = nrow(DATA) > 10
-
 if pandemic
     print(Crayon(foreground = :red), "$seed-($blockade)")
 elseif n_R_[T] > 1000
@@ -181,7 +179,6 @@ else
 end
 print(Crayon(reset = true), " ")
 
-DATA = DATA[DATA.log_R .> 2,:]
 (_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 2,:])) : (0,0)
 
 jldsave("$seed rslt.jld2";
