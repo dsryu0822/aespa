@@ -32,9 +32,9 @@ function simulation(seed_number::Int64
     n_RECOVERY_ = Int64[]
     n_I_tier = zeros(Int64, end_time, 1)
 
-    ndws_n_I_ = DataFrame([[] for _ = countrynames] , countrynames)
-    ndws_n_RECOVERY_ = DataFrame([[] for _ = countrynames] , countrynames)
-
+    ndws_n_I_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
+    ndws_n_RECOVERY_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
+    BD = DataFrame(T = Int64[], strain = Int64[], tier = Int64[], location = Int64[], prey = Int64[])
 
     T = 0 # Macro timestep
     state    = fill('S', n) # using SEIR model
@@ -57,7 +57,7 @@ function simulation(seed_number::Int64
     RECOVERY[host] .= round.(rand(recovery_period, number_of_host)) .+ 1
       STRAIN[host]  = host
 
-    BD = [1 host[1] 0 2935] # birth-death matrix, [T strain tier location] location 0 means death
+    push!(BD, [1, host[1], 0, 2935, count(LOCATION .== 2935)]) # birth-death matrix, [T strain tier location] location 0 means death
     pregenogram = [0 => host[1]]
     alive_strain = [host[1]]
 
@@ -72,19 +72,20 @@ while T < end_time
     RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
                              state[alive_strain ∩ findall(bit_RECOVERY)] .= 'X' # exception, coding issue
 
+    @inbounds bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
+    @inbounds bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
+    @inbounds bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I);
+    @inbounds bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
+
     new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00005))
     append!(pregenogram, STRAIN[new_strain] .=> new_strain)
     append!(alive_strain, new_strain)
     TIER[new_strain] .+= 1 # Variant Virus
     STRAIN[new_strain] .= new_strain # Variant Virus
     for strain in new_strain
-        BD = vcat(BD, [T strain TIER[strain] LOCATION[strain]])
+        prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (bit_S .|| bit_R))
+        push!(BD, [T, strain, TIER[strain], LOCATION[strain], prey])
     end
-
-    @inbounds bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
-    @inbounds bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
-    @inbounds bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I);
-    @inbounds bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
 
     T == 1 ? push!(n_RECOVERY_, 0) : push!(n_RECOVERY_, n_RECOVERY_[end] + count(bit_RECOVERY))
     push!(       ndws_n_I_, [sum(       bit_I .&& c) for c in bits_C])
@@ -97,7 +98,8 @@ while T < end_time
 
     lost_strain = setdiff(alive_strain, STRAIN[bit_E .|| bit_I])
     for strain in lost_strain
-        BD = vcat(BD, [T strain TIER[strain] 0])
+        prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (bit_S .|| bit_R))
+        push!(BD, [T, strain, TIER[strain], 0, prey])
     end
     setdiff!(alive_strain, lost_strain)
 
@@ -155,7 +157,8 @@ while T < end_time
     end
 end
 for strain in alive_strain
-    BD = vcat(BD, [T strain TIER[strain] 0])
+    prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (bit_S .|| bit_R))
+    push!(BD, [T, strain, TIER[strain], 0, prey])
 end
 
 max_tier = maximum(TIER)
