@@ -77,7 +77,7 @@ while T < end_time
     @inbounds bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I);
     @inbounds bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
 
-    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00005))
+    new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00001))
     append!(pregenogram, STRAIN[new_strain] .=> new_strain)
     append!(alive_strain, new_strain)
     TIER[new_strain] .+= 1 # Variant Virus
@@ -182,7 +182,7 @@ else
 end
 print(Crayon(reset = true), " ")
 
-(_, slope) = pandemic ? coef(lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 2,:])) : (0,0)
+(_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
 
 jldsave("$seed rslt.jld2";
         max_tier, pandemic, slope, T, R, ndwr, # NODE_blocked, V,
