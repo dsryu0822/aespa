@@ -157,7 +157,7 @@ while T < end_time
     end
 end
 for strain in alive_strain
-    prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (bit_S .|| bit_R))
+    prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (state .== 'S' .|| state .== 'R'))
     push!(BD, [T, strain, TIER[strain], 0, prey])
 end
 
