@@ -185,7 +185,7 @@ print(Crayon(reset = true), " ")
 (_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
 
 jldsave("$seed rslt.jld2";
-        max_tier, pandemic, slope, T, R, ndwr, # NODE_blocked, V,
+        max_tier, pandemic, slope, T, R, ndwr, ndws_n_RECOVERY_,
         time_evolution, n_I_tier, BD, pregenogram,
         log_degree, log_R, network_parity
         )

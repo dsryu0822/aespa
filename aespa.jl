@@ -63,15 +63,17 @@ begin
         NODE_blocked = deepcopy(NODE0)
 
         Random.seed!(seed_number);
-        blocked = findall(rand(N) .< blockade)
+        # blocked = findall(rand(N) .< blockade)
         # for u in 1:N NODE_blocked[u][NODE_blocked[u] .∈ Ref(blocked)] .= u end
-        for u in 1:N
-            if u in blocked
-                NODE_blocked[u] .= u
-            else
-                NODE_blocked[u][NODE_blocked[u] .∈ Ref(blocked)] .= u
-            end
-        end
+        # for u in 1:N
+        #     if u in blocked
+        #         NODE_blocked[u] .= u
+        #     else
+        #         NODE_blocked[u][NODE_blocked[u] .∈ Ref(blocked)] .= u
+        #     end
+        # end
+
+        for u in 1:N NODE_blocked[u][length(NODE_blocked[u]) .< blocked] .= u end
         
         simulation(
             seed_number
