@@ -73,7 +73,7 @@ begin
         #     end
         # end
 
-        for u in 1:N NODE_blocked[u][length(NODE_blocked[u]) .< blocked] .= u end
+        for u in 1:N NODE_blocked[u][rand(length(NODE_blocked[u])) .< blockade] .= u end
         
         simulation(
             seed_number

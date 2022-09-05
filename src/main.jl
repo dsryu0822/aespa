@@ -22,7 +22,7 @@ function simulation(seed_number::Int64
     latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
     recovery_period = Weibull(3, 7.17)
 
-    δ = 0.01
+    δ = 0.015
     seed = lpad(seed_number, 4, '0')
 
     n_S_ = Int64[]
@@ -44,7 +44,7 @@ function simulation(seed_number::Int64
     STRAIN   = zeros(Int64, n)
    
     Random.seed!(seed_number);
-    bit_movable = .!(rand(n) .< blockade)
+    # bit_movable = .!(rand(n) .< blockade)
 
     NODE = copy(NODE0)
     LOCATION = sample(1:N, Weights(data.indegree), n)
@@ -108,7 +108,7 @@ while T < end_time
     
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
-    if T >= T0 bit_passed = bit_passed .&& bit_movable end
+    # if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
 
@@ -165,7 +165,7 @@ max_tier = maximum(TIER)
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_RECOVERY_)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
 
-ndws_n_RECOVERY_[:,:] = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
+ndws_n_RECOVERY_ = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
 ndwr = collect(ndws_n_RECOVERY_[end,:])
 R = n_RECOVERY_[T]
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwr))
