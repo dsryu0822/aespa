@@ -27,7 +27,7 @@ begin
         CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
         preview = open(root * scenario.name * "/cnfg.csv", "a")
         println(preview, "")
-        println(preview, "seed,time,max_tier,pandemic,slope,T,R,network_parity")
+        println(preview, "seed,time,max_tier,pandemic,slope,T,n_T,network_parity")
         close(preview)
     end
     cd(root * scenario.name)
@@ -72,7 +72,6 @@ begin
         #         NODE_blocked[u][NODE_blocked[u] .∈ Ref(blocked)] .= u
         #     end
         # end
-
         for u in 1:N NODE_blocked[u][rand(length(NODE_blocked[u])) .< blockade] .= u end
         
         simulation(
@@ -81,7 +80,6 @@ begin
             , blockade
             , σ
             , β
-            # , D
             , NODE0
             , NODE_blocked
             , N

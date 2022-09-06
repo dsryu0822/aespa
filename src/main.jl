@@ -3,7 +3,6 @@ function simulation(seed_number::Int64
     , blockade
     , σ
     , β
-    # , D
     , NODE0
     , NODE_blocked
     , N
@@ -19,22 +18,18 @@ function simulation(seed_number::Int64
     end_time = 500
     T0 = 50
 
+    NODE = copy(NODE0)
     latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
     recovery_period = Weibull(3, 7.17)
 
-    δ = 0.015
+    δ = 0.01
     seed = lpad(seed_number, 4, '0')
 
-    n_S_ = Int64[]
-    n_E_ = Int64[]
-    n_I_ = Int64[]
-    n_R_ = Int64[]
-    n_RECOVERY_ = Int64[]
     n_I_tier = zeros(Int64, end_time, 1)
-
     ndwi_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
-    ndwr_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
-    BD = DataFrame(T = Int64[], strain = Int64[], tier = Int64[], location = Int64[], prey = Int64[])
+    ndwt_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
+    TE = DataFrame(n_S_ = Int64[], n_E_ = Int64[], n_I_ = Int64[], n_R_ = Int64[], n_T_ = Int64[]) # Time evolution
+    BD = DataFrame(T = Int64[], strain = Int64[], tier = Int64[], location = Int64[], prey = Int64[]) # Birth-death
 
     T = 0 # Macro timestep
     state    = fill('S', n) # using SEIR model
@@ -42,11 +37,11 @@ function simulation(seed_number::Int64
     RECOVERY = fill(-1, n)
     TIER     = fill(-1, n)
     STRAIN   = zeros(Int64, n)
+    n_T = 0 # number of cummulative total cases. see the update process for `RECOVERY`
    
     Random.seed!(seed_number);
     # bit_movable = .!(rand(n) .< blockade)
 
-    NODE = copy(NODE0)
     LOCATION = sample(1:N, Weights(data.indegree), n)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
 
@@ -61,21 +56,23 @@ function simulation(seed_number::Int64
     pregenogram = [0 => host[1]]
     alive_strain = [host[1]]
 
-    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
-
+    coordinate = XY[:,LOCATION] + (Float16(0.2) * randn(Float16, 2, n))
     bits_C = [(country[LOCATION] .== c) for c in countrynames]
     
 while T < end_time
     T += 1
 
-    LATENT   .-= 1; bit_LATENT   = (LATENT   .== 0); state[bit_LATENT  ] .= 'I'
-    RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
+    @inbounds LATENT   .-= 1; bit_LATENT   = (LATENT   .== 0); state[bit_LATENT  ] .= 'I'
+    @inbounds RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'; n_T += count(bit_RECOVERY)
                              state[alive_strain ∩ findall(bit_RECOVERY)] .= 'X' # exception, coding issue
 
-    @inbounds bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S);
-    @inbounds bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E);
-    @inbounds bit_I = (state .== 'I'); n_I = count(bit_I); push!(n_I_, n_I);
-    @inbounds bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R);
+    @inbounds bit_S = (state .== 'S'); n_S = count(bit_S)
+    @inbounds bit_E = (state .== 'E'); n_E = count(bit_E)
+    @inbounds bit_I = (state .== 'I'); n_I = count(bit_I)
+    @inbounds bit_R = (state .== 'R'); n_R = count(bit_R)
+    push!(TE, [n_S, n_E, n_I, n_R, n_T])
+    push!(ndwi_, [sum(       bit_I .&& c) for c in bits_C])
+    push!(ndwt_, [sum(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
 
     new_strain = findall(bit_LATENT .&& (rand(n) .< 0.00001))
     append!(pregenogram, STRAIN[new_strain] .=> new_strain)
@@ -86,10 +83,6 @@ while T < end_time
         prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (bit_S .|| bit_R))
         push!(BD, [T, strain, TIER[strain], LOCATION[strain], prey])
     end
-
-    T == 1 ? push!(n_RECOVERY_, 0) : push!(n_RECOVERY_, n_RECOVERY_[end] + count(bit_RECOVERY))
-    push!(ndwi_, [sum(       bit_I .&& c) for c in bits_C])
-    push!(ndwr_, [sum(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
 
     while size(n_I_tier)[2] ≤ maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
@@ -110,7 +103,7 @@ while T < end_time
     if T == T0       NODE = NODE_blocked               end
     # if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
+    coordinate = XY[:,LOCATION] + (Float16(0.2) * randn(Float16, 2, n))
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
@@ -118,6 +111,7 @@ while T < end_time
 
     phase = 0
     flag_wuhan = false
+    if flag_test println("$(now()) T: $T - n_I: $n_I") end
     for bit_actual ∈ [bit_china, bit_atlantic, .!bit_atlantic]
         phase += 1
         if phase == 1
@@ -130,7 +124,7 @@ while T < end_time
 
         for strain in alive_strain
             tier = TIER[strain]
-            β_ = (tier ∈ [2,3,5,7,11,13,17,19,23,29,31,37] ? β : 2β)
+            β_ = (tier ∈ [2,3,5,7,11,13,17,19,23,29,31,37] ? 2 : 1) * β
 
             ID_infectious = findall(bit_actual .&& (bit_I .&& (STRAIN .== strain)))
             if isempty(ID_infectious) continue end
@@ -150,7 +144,7 @@ while T < end_time
             RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
                 TIER[ID_infected] .= tier
               STRAIN[ID_infected] .= strain
-            if flag_test println("$T: $n_I") end
+            if flag_test println("              & $(length(ID_infected)) at $phase of $strain") end
         end
         if flag_wuhan break end
         
@@ -162,20 +156,16 @@ for strain in alive_strain
 end
 
 max_tier = maximum(TIER)
-time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_RECOVERY_)
-network_parity = mod(sum(sum.(NODE_blocked)),2)
-
-ndwr_ = cumsum(Matrix(ndwr_), dims = 1)
-ndwr = collect(ndwr_[end,:])
-R = n_RECOVERY_[T]
-DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwr))
+ndwt_ = cumsum(Matrix(ndwt_), dims = 1)
+ndwt = collect(ndwt_[end,:])
+DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwt))
 log_degree = DATA.log_degree
      log_R = DATA.log_R
   pandemic = count(log_R .> 2) > 10
     
 if pandemic
     print(Crayon(foreground = :red), "$seed-($blockade)")
-elseif n_R_[T] > 1000
+elseif n_T > 1000
     print(Crayon(foreground = :yellow), "$seed-($blockade)")
 else
     print(Crayon(foreground = :green), "$seed-($blockade)")
@@ -183,14 +173,15 @@ end
 print(Crayon(reset = true), " ")
 
 (_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
+network_parity = mod(sum(sum.(NODE_blocked)),2)
 
 jldsave("$seed rslt.jld2";
-        max_tier, pandemic, slope, T, R, ndwr, ndwr_,
-        time_evolution, n_I_tier, BD, pregenogram,
-        log_degree, log_R, network_parity
+        T, n_T, max_tier, network_parity, pandemic,
+        DATA, slope, ndwt, ndwt_,
+        TE, n_I_tier, BD, pregenogram,
         )
 
 preview = open("cnfg.csv", "a")
-println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$R,$network_parity")
+println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$n_T,$network_parity")
 close(preview)
 end
