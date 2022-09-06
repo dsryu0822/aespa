@@ -32,8 +32,8 @@ function simulation(seed_number::Int64
     n_RECOVERY_ = Int64[]
     n_I_tier = zeros(Int64, end_time, 1)
 
-    ndws_n_I_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
-    ndws_n_RECOVERY_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
+    ndwi_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
+    ndwr_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
     BD = DataFrame(T = Int64[], strain = Int64[], tier = Int64[], location = Int64[], prey = Int64[])
 
     T = 0 # Macro timestep
@@ -88,8 +88,8 @@ while T < end_time
     end
 
     T == 1 ? push!(n_RECOVERY_, 0) : push!(n_RECOVERY_, n_RECOVERY_[end] + count(bit_RECOVERY))
-    push!(       ndws_n_I_, [sum(       bit_I .&& c) for c in bits_C])
-    push!(ndws_n_RECOVERY_, [sum(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
+    push!(ndwi_, [sum(       bit_I .&& c) for c in bits_C])
+    push!(ndwr_, [sum(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
 
     while size(n_I_tier)[2] ≤ maximum(TIER)
         n_I_tier = [n_I_tier zeros(Int64, end_time, 1)]
@@ -165,8 +165,8 @@ max_tier = maximum(TIER)
 time_evolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_RECOVERY_)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
 
-ndws_n_RECOVERY_ = cumsum(Matrix(ndws_n_RECOVERY_), dims = 1)
-ndwr = collect(ndws_n_RECOVERY_[end,:])
+ndwr_ = cumsum(Matrix(ndwr_), dims = 1)
+ndwr = collect(ndwr_[end,:])
 R = n_RECOVERY_[T]
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwr))
 log_degree = DATA.log_degree
@@ -185,7 +185,7 @@ print(Crayon(reset = true), " ")
 (_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
 
 jldsave("$seed rslt.jld2";
-        max_tier, pandemic, slope, T, R, ndwr, ndws_n_RECOVERY_,
+        max_tier, pandemic, slope, T, R, ndwr, ndwr_,
         time_evolution, n_I_tier, BD, pregenogram,
         log_degree, log_R, network_parity
         )
