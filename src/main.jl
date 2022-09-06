@@ -56,7 +56,7 @@ function simulation(seed_number::Int64
     pregenogram = [0 => host[1]]
     alive_strain = [host[1]]
 
-    coordinate = XY[:,LOCATION] + (Float16(0.2) * randn(Float16, 2, n))
+    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
     bits_C = [(country[LOCATION] .== c) for c in countrynames]
     
 while T < end_time
@@ -103,7 +103,7 @@ while T < end_time
     if T == T0       NODE = NODE_blocked               end
     # if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate = XY[:,LOCATION] + (Float16(0.2) * randn(Float16, 2, n))
+    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
