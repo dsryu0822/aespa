@@ -103,7 +103,7 @@ while T < end_time
     if T == T0       NODE = NODE_blocked               end
     if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate[bit_passed] .= XY[:,LOCATION[bit_passed]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_passed)))
+    coordinate[:, bit_passed] .= XY[:,LOCATION[bit_passed]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_passed)))
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
@@ -163,14 +163,15 @@ log_degree = DATA.log_degree
      log_R = DATA.log_R
   pandemic = count(log_R .> 2) > 10
     
-if pandemic
-    print(Crayon(foreground = :red), "$seed-($blockade)")
-elseif n_T > 1000
-    print(Crayon(foreground = :yellow), "$seed-($blockade)")
-else
-    print(Crayon(foreground = :green), "$seed-($blockade)")
-end
-print(Crayon(reset = true), " ")
+print(rgb3(1 - logistic(log10(n_T), 4, 1)), "$seed-($blockade)")
+#   if pandemic
+#     print(Crayon(foreground = :red), "$seed-($blockade)")
+# elseif n_T > 1000
+#     print(Crayon(foreground = :yellow), "$seed-($blockade)")
+# else
+#     print(Crayon(foreground = :green), "$seed-($blockade)")
+# end
+# print(Crayon(reset = true), " ")
 
 (_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
