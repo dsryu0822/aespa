@@ -40,7 +40,7 @@ function simulation(seed_number::Int64
     n_T = 0 # number of cummulative total cases. see the update process for `RECOVERY`
    
     Random.seed!(seed_number);
-    # bit_movable = .!(rand(n) .< blockade)
+    bit_movable = .!(rand(n) .< blockade)
 
     LOCATION = sample(1:N, Weights(data.indegree), n)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
@@ -101,9 +101,9 @@ while T < end_time
     
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
-    # if T >= T0 bit_passed = bit_passed .&& bit_movable end
+    if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
+    coordinate[bit_passed] = XY[:,LOCATION[bit_passed]] + (Float16(0.1) * randn(Float16, 2, count(bit_passed)))
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
