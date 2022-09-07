@@ -103,7 +103,7 @@ while T < end_time
     if T == T0       NODE = NODE_blocked               end
     if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate[bit_passed] = XY[:,LOCATION[bit_passed]] + (Float16(0.1) * randn(Float16, 2, count(bit_passed)))
+    coordinate[bit_passed] .= XY[:,LOCATION[bit_passed]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_passed)))
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
