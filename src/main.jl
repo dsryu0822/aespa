@@ -124,7 +124,8 @@ while T < end_time
 
         for strain in alive_strain
             tier = TIER[strain]
-            β_ = (tier ∈ [2,3,5,7,11,13,17,19,23,29,31,37] ? 2 : 1) * β
+            # β_ = (tier ∈ [2,3,5,7,11,13,17,19,23,29,31,37] ? 2 : 1) * β
+            β_ = (2-(mod(tier,2))) * β
 
             ID_infectious = findall(bit_actual .&& (bit_I .&& (STRAIN .== strain)))
             if isempty(ID_infectious) continue end
