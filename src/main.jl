@@ -171,7 +171,7 @@ print(rgb3(1 - logistic(log10(n_T), 4, 1)), "$seed-($blockade)")
 # else
 #     print(Crayon(foreground = :green), "$seed-($blockade)")
 # end
-# print(Crayon(reset = true), " ")
+print(Crayon(reset = true), " ")
 
 (_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
 network_parity = mod(sum(sum.(NODE_blocked)),2)

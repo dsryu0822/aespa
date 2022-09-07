@@ -8,8 +8,8 @@ begin
     using NearestNeighbors, GLM
     using JLD2
 
-    # include("src/lemma.jl")
     include("src/main.jl")
+    include("src/sub.jl")
 
     # ------------------------------------------------------------------ directory
 
