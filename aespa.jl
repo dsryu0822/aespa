@@ -1,8 +1,9 @@
 begin
-    using XLSX, CSV, DataFrames
-    excuted_DIR = string(@__DIR__)
-    schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
-
+    # schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
+    doing = isempty(ARGS) ? 1 : parse(Int64, ARGS[1])
+    flag_test = isempty(ARGS)
+    
+    using CSV, DataFrames
     using Crayons, Dates
     using Random, Distributions, StatsBase
     using NearestNeighbors, GLM
@@ -11,6 +12,9 @@ begin
     include("src/main.jl")
     include("src/sub.jl")
 
+    excuted_DIR = string(@__DIR__)
+    schedule = CSV.read("cached_schedule.csv", DataFrame)
+
     # ------------------------------------------------------------------ directory
 
     root = "C:/simulated/"
@@ -18,9 +22,6 @@ begin
     if !ispath("C:/saved/") mkpath("C:/saved/") end
 
     # ------------------------------------------------------------------ setting
-
-    doing = isempty(ARGS) ? 1 : parse(Int64, ARGS[1])
-    flag_test = isempty(ARGS)
     scenario = schedule[doing,:]
     if !ispath(root * scenario.name)
         mkpath(root * scenario.name)
@@ -34,14 +35,12 @@ begin
 
     # ------------------------------------------------------------------ parameters
 
-
     temp_code = scenario.temp_code
     first_seed = scenario.first_seed
     last_seed = scenario.last_seed
     blockade = scenario.blockade / 100
     σ = scenario.σ
     β = scenario.β
-    # D = scenario.D # period of vaccin develop
 
     realnetwork = jldopen(excuted_DIR * "\\data_link.jld2")
         NODE0 = realnetwork["adj_encoded"]

@@ -1,8 +1,9 @@
 begin
-  using XLSX
+  using XLSX, CSV, DataFrames
   while true
     try
-      XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")
+      cached_schedule = XLSX.readtable(string(@__DIR__) * "/schedule.xlsx", "schedule")
+      CSV.write("cached_schedule.csv", cached_schedule)
       break
     catch SystemError
       print(".")

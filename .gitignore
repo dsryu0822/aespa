@@ -9,3 +9,4 @@
 # *.jld
 *.log
 REPL.jl
+cached_schedule.csv

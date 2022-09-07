@@ -163,15 +163,7 @@ log_degree = DATA.log_degree
      log_R = DATA.log_R
   pandemic = count(log_R .> 2) > 10
     
-print(rgb3(1 - logistic(log10(n_T), 4, 1)), "$seed-($blockade)")
-#   if pandemic
-#     print(Crayon(foreground = :red), "$seed-($blockade)")
-# elseif n_T > 1000
-#     print(Crayon(foreground = :yellow), "$seed-($blockade)")
-# else
-#     print(Crayon(foreground = :green), "$seed-($blockade)")
-# end
-print(Crayon(reset = true), " ")
+print(rgb3(1 - logistic(log10(n_T), 4, 1)), "$seed-($blockade)", Crayon(reset = true))
 
 (_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
