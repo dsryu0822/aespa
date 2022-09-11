@@ -28,7 +28,7 @@ begin
         CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
         preview = open(root * scenario.name * "/cnfg.csv", "a")
         println(preview, "")
-        println(preview, "seed,time,max_tier,pandemic,slope,T,n_T,network_parity")
+        println(preview, "seed,time,max_tier,escape,slope,T,n_T,network_parity")
         close(preview)
     end
     cd(root * scenario.name)

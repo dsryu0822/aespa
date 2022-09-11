@@ -23,3 +23,5 @@ end
 # for w in 10 .^ (0:1:7)
 #     println(rgb3(1 - logistic(log10(w), 4, 1)), w)
 # end
+
+ReLu(x) = max(x, 0)

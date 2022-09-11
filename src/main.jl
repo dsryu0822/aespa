@@ -22,7 +22,7 @@ function simulation(seed_number::Int64
     latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
     recovery_period = Weibull(3, 7.17)
 
-    δ = 0.01
+    δ = 0.018
     seed = lpad(seed_number, 4, '0')
 
     n_I_tier = zeros(Int64, end_time, 1)
@@ -40,7 +40,7 @@ function simulation(seed_number::Int64
     n_T = 0 # number of cummulative total cases. see the update process for `RECOVERY`
    
     Random.seed!(seed_number);
-    bit_movable = .!(rand(n) .< blockade)
+    # bit_movable = .!(rand(n) .< blockade)
 
     LOCATION = sample(1:N, Weights(data.indegree), n)
     for _ in 1:10 LOCATION = rand.(NODE[LOCATION]) end
@@ -99,11 +99,13 @@ while T < end_time
     if n_E + n_I == 0 break end
 
     
+    __LOCATION = deepcopy(LOCATION)
     bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
     if T == T0       NODE = NODE_blocked               end
-    if T >= T0 bit_passed = bit_passed .&& bit_movable end
+    # if T >= T0 bit_passed = bit_passed .&& bit_movable end
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    coordinate[:, bit_passed] .= XY[:,LOCATION[bit_passed]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_passed)))
+    bit_moved = (LOCATION .!= __LOCATION)
+    coordinate[:, bit_moved] .= XY[:,LOCATION[bit_moved]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_moved)))
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
@@ -162,20 +164,21 @@ ndwt = collect(ndwt_[end,:])
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwt))
 log_degree = DATA.log_degree
      log_R = DATA.log_R
-  pandemic = count(log_R .> 2) > 10
+    escape = count(log_R .> 0) > 1
     
 print(rgb3(1 - logistic(log10(n_T), 4, 1)), "$seed-($blockade) ", Crayon(reset = true))
 
-(_, slope) = pandemic ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
+(_, slope) = escape ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
+slope = ReLu(slope)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
 
 jldsave("$seed rslt.jld2";
-        T, n_T, max_tier, network_parity, pandemic,
+        T, n_T, max_tier, network_parity, escape,
         DATA, slope, ndwt, ndwt_,
         TE, n_I_tier, BD, pregenogram,
         )
 
 preview = open("cnfg.csv", "a")
-println(preview, "$seed,$(now()),$max_tier,$pandemic,$slope,$T,$n_T,$network_parity")
+println(preview, "$seed,$(now()),$max_tier,$escape,$slope,$T,$n_T,$network_parity")
 close(preview)
 end
