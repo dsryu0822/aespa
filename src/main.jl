@@ -110,8 +110,8 @@ while T < end_time
     coordinate[:, bit_moved] .= XY[:,LOCATION[bit_moved]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_moved)))
 
     push!(TE, [n_S, n_E, n_I, n_R, n_T, n_M])
-    if !flag_escape && n_M > 0
-        first_escape = LOCATION[bit_moved]
+    if !flag_escape && count(bit_moved .&& bit_I) > 0
+        first_escape = LOCATION[bit_moved .&& bit_I]
         flag_escape = true
     end
 
