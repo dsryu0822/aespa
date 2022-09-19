@@ -1,8 +1,7 @@
 begin
     # schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
     doing = isempty(ARGS) ? 1 : parse(Int64, ARGS[1])
-    flag_test = isempty(ARGS)
-    
+
     using CSV, DataFrames
     using Crayons, Dates
     using Random, Distributions, StatsBase
@@ -28,17 +27,23 @@ begin
         CSV.write(root * scenario.name * "/cnfg.csv", DataFrame(scenario), bom = true)
         preview = open(root * scenario.name * "/cnfg.csv", "a")
         println(preview, "")
-        println(preview, "seed,time,max_tier,escape,slope,T,n_T,network_parity")
+        println(preview, "seed,time,max_tier,isescape,slope,T,n_T,network_parity")
         close(preview)
     end
     cd(root * scenario.name)
 
     # ------------------------------------------------------------------ parameters
 
+    if isempty(ARGS)
+        flag_test = true
+    else
+        flag_test = scenario.flag_test
+    end
     temp_code = scenario.temp_code
     first_seed = scenario.first_seed
     last_seed = scenario.last_seed
     blockade = scenario.blockade / 100
+    T0 = scenario.T0
     σ = scenario.σ
     β = scenario.β
 
@@ -77,6 +82,7 @@ begin
             seed_number
             , flag_test
             , blockade
+            , T0
             , σ
             , β
             , NODE0
