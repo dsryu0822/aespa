@@ -1,7 +1,6 @@
 begin
     # schedule = DataFrame(XLSX.readtable(excuted_DIR * "/schedule.xlsx", "schedule"))
     doing = isempty(ARGS) ? 1 : parse(Int64, ARGS[1])
-    flag_test = isempty(ARGS)
 
     using CSV, DataFrames
     using Crayons, Dates
@@ -35,6 +34,11 @@ begin
 
     # ------------------------------------------------------------------ parameters
 
+    if isempty(ARGS)
+        flag_test = true
+    else
+        flag_test = scenario.flag_test
+    end
     temp_code = scenario.temp_code
     first_seed = scenario.first_seed
     last_seed = scenario.last_seed

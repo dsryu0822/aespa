@@ -186,9 +186,11 @@ jldsave("$seed rslt.jld2";
         slope, ndwt, ndwt_, first_escape,
         n_I_tier, BD, pregenogram, TE, DATA
         )
-jldsave("$seed test.jld2";
+if flag_test
+        jldsave("$seed test.jld2";
         ndwi_
         )
+end
 
 preview = open("cnfg.csv", "a")
 println(preview, "$seed,$(now()),$max_tier,$isescape,$slope,$T,$n_T,$network_parity")
