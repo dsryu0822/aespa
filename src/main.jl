@@ -29,7 +29,7 @@ function simulation(seed_number::Int64
     n_I_tier = zeros(Int64, end_time, 1)
     ndwi_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
     ndwt_ = DataFrame([Int64[] for _ = countrynames] , countrynames)
-    TE = DataFrame(n_S_ = Int64[], n_E_ = Int64[], n_I_ = Int64[], n_R_ = Int64[], n_T_ = Int64[], n_M_ = Int64[]) # Time evolution
+    TE = DataFrame(n_S_ = Int64[], n_E_ = Int64[], n_I_ = Int64[], n_R_ = Int64[], n_T_ = Int64[], n_M_ = Int64[], beta0 = Float64[], beta1 = Float64[]) # Time evolution
     BD = DataFrame(T = Int64[], strain = Int64[], tier = Int64[], location = Int64[], prey = Int64[]) # Birth-death
 
     T = 0 # Macro timestep
@@ -75,6 +75,7 @@ while T < end_time
     @inbounds bit_R = (state .== 'R'); n_R = count(bit_R)
     push!(ndwi_, [sum(       bit_I .&& c) for c in bits_C])
     push!(ndwt_, [sum(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
+    bit_IE = bit_I .|| bit_E
 
     new_strain = findall(bit_LATENT .&& (rand(n) .< -0.00001))
     append!(pregenogram, STRAIN[new_strain] .=> new_strain)
@@ -91,7 +92,7 @@ while T < end_time
     end
     n_I_tier[T, :] = [count(bit_I .&& (TIER .== tier)) for tier in 0:maximum(TIER)]'
 
-    lost_strain = setdiff(alive_strain, STRAIN[bit_E .|| bit_I])
+    lost_strain = setdiff(alive_strain, STRAIN[bit_IE])
     for strain in lost_strain
         prey = count((LOCATION .== LOCATION[strain]) .&& (TIER .< TIER[strain]) .&& (bit_S .|| bit_R))
         push!(BD, [T, strain, TIER[strain], 0, prey])
@@ -108,12 +109,20 @@ while T < end_time
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     bit_moved = (LOCATION .!= __LOCATION); n_M = count(bit_moved)
     coordinate[:, bit_moved] .= XY[:,LOCATION[bit_moved]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_moved)))
-
-    push!(TE, [n_S, n_E, n_I, n_R, n_T, n_M])
-    if !flag_escape && count(bit_moved .&& bit_I) > 0
-        first_escape = LOCATION[bit_moved .&& bit_I]
+    if !flag_escape && count(bit_moved .&& bit_IE) > 0
+        first_escape = first(LOCATION[bit_moved .&& bit_IE])
         flag_escape = true
     end
+
+    DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndwt_[end,:])))
+    log_degree = DATA.log_degree
+         log_R = DATA.log_R
+      isescape = count(log_R .> 0) > 1
+    (beta0, beta1) = isescape ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
+
+    
+    push!(TE, [n_S, n_E, n_I, n_R, n_T, n_M, beta0, beta1])
+
 
     bit_atlantic = atlantic[LOCATION]
     bit_wuhan = (LOCATION .== 2935)
@@ -140,7 +149,7 @@ while T < end_time
 
             ID_infectious = findall(bit_actual .&& (bit_I .&& (STRAIN .== strain)))
             if isempty(ID_infectious) continue end
-            ID_susceptibl = findall(bit_actual .&& (bit_S .|| (bit_R .&& (TIER .< tier))))
+            ID_susceptibl = findall(bit_actual .&& (bit_S ))#.|| (bit_R .&& (TIER .< tier))))
             
             kdtreeI = KDTree(coordinate[:,ID_infectious])
 
