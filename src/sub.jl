@@ -24,4 +24,4 @@ end
 #     println(rgb3(1 - logistic(log10(w), 4, 1)), w)
 # end
 
-ReLu(x) = max(x, 0)
+ReLU(x) = max(x, 0)

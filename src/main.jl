@@ -109,8 +109,8 @@ while T < end_time
     LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
     bit_moved = (LOCATION .!= __LOCATION); n_M = count(bit_moved)
     coordinate[:, bit_moved] .= XY[:,LOCATION[bit_moved]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_moved)))
-    if !flag_escape && count(bit_moved .&& bit_IE) > 0
-        first_escape = first(LOCATION[bit_moved .&& bit_IE])
+    if (length(first_escape) < 10) && (count(bit_moved .&& bit_IE) > 0)
+        first_escape = append!(first_escape, LOCATION[bit_moved .&& bit_IE])
         flag_escape = true
     end
 
@@ -187,7 +187,7 @@ log_degree = DATA.log_degree
 print(rgb3(1 - logistic(log10(n_T), 4, 1)), "$seed-($blockade) ", Crayon(reset = true))
 
 (_, slope) = isescape ? lm(@formula(log_R ~ log_degree), DATA[DATA.log_R .> 0,:], wts = log_R[DATA.log_R .> 0]) |> coef : (0,0)
-slope = ReLu(slope)
+slope = ReLU(slope)
 network_parity = mod(sum(sum.(NODE_blocked)),2)
 
 jldsave("$seed rslt.jld2";
