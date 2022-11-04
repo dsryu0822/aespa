@@ -15,7 +15,7 @@ function simulation(seed_number::Int64
 )
 
     n = 800000
-    end_time = 500
+    end_time = flag_test ? 100 : 500
     # T0 = 50
 
     NODE = copy(NODE0)
@@ -25,22 +25,23 @@ function simulation(seed_number::Int64
     δ = 0.018
     seed = lpad(seed_number, 4, '0')
 
-    ndwi_  = DataFrame([Int64[] for _ = countrynames] , countrynames)
-    ndwt_  = DataFrame([Int64[] for _ = countrynames] , countrynames)
-    n_S_   = Int64[]
-    n_E_   = Int64[]
-    n_I_   = Int64[]
-    n_R_   = Int64[]
-    beta0_ = Float64[]
-    beta1_ = Float64[]
+    ndwi_  = DataFrame([Int32[] for _ = countrynames] , countrynames)
+    ndwt_  = DataFrame([Int32[] for _ = countrynames] , countrynames)
+    n_S_   = Int32[]
+    n_E_   = Int32[]
+    n_I_   = Int32[]
+    n_R_   = Int32[]
+    n_M_   = Int32[]
+    beta0_ = Float16[]
+    beta1_ = Float16[]
 
     T = 0 # Macro timestep
     state    = fill('S', n) # using SEIR model
     LATENT   = fill( -1, n)
     RECOVERY = fill( -1, n)
-    FROM     = fill(  0, n)
-    WHERE    = fill(  0, n)
-    WHEN     = fill(  0, n)
+    FROM     = zeros(Int32, n)
+    WHERE    = zeros(Int16, n)
+    WHEN     = zeros(Int16, n)
     
     Random.seed!(seed_number);
     bit_movable = .!(rand(n) .< blockade)
@@ -72,11 +73,20 @@ while T < end_time
     @inbounds bit_R = (state .== 'R'); n_R = count(bit_R); push!(n_R_, n_R)
     push!(ndwi_, [count(       bit_I .&& c) for c in bits_C])
     push!(ndwt_, [count(bit_RECOVERY .&& c) for c in bits_C]) # It should be cumsummed
-    bit_IE = bit_I .|| bit_E
+
+    __LOCATION = deepcopy(LOCATION)
+    @inbounds bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
+    if T >= T0 bit_passed = bit_passed .&& bit_movable end
+    @inbounds LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
+    @inbounds bit_moved = (LOCATION .!= __LOCATION); push!(n_M_, count(bit_moved))
+    @inbounds coordinate[:, bit_moved] .= XY[:,LOCATION[bit_moved]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_moved)))
 
     if iszero(n_E + n_I) break end
 
+
     if flag_test
+        println("$(now()) T: $T - n_I: $n_I")
+
         DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(collect(ndwt_[end,:])))
         log_degree = DATA.log_degree
              log_R = DATA.log_R
@@ -85,32 +95,14 @@ while T < end_time
         push!(beta0_, beta0)
         push!(beta1_, beta1)
     end
-    
 
-    __LOCATION = deepcopy(LOCATION)
-    bit_passed = (((rand(n) .< σ) .&& .!bit_I) .|| ((rand(n) .< σ/100) .&& bit_I))
-    if T >= T0 bit_passed = bit_passed .&& bit_movable end
-    LOCATION[bit_passed] = rand.(NODE[LOCATION[bit_passed]])
-    bit_moved = (LOCATION .!= __LOCATION)
-    coordinate[:, bit_moved] .= XY[:,LOCATION[bit_moved]] .+ (Float16(0.1) * randn(Float16, 2, count(bit_moved)))
 
-    bit_atlantic = atlantic[LOCATION]
-    bit_wuhan = (LOCATION .== 2935)
-    bit_china = (country[LOCATION] .== "China")
+    @inbounds bit_atlantic = atlantic[LOCATION]
+    @inbounds bit_wuhan = (LOCATION .== 2935)
+    @inbounds bit_china = (country[LOCATION] .== "China")
+    bits_local = (count(bit_I .&& .!bit_wuhan) |> iszero) ? [bit_china] : [bit_atlantic, .!bit_atlantic]
 
-    phase = 0
-    flag_wuhan = false
-    if flag_test println("$(now()) T: $T - n_I: $n_I") end
-    for bit_actual ∈ [bit_china, bit_atlantic, .!bit_atlantic]
-        phase += 1
-        if phase == 1
-            if count(bit_I .&& .!bit_wuhan) |> iszero
-                flag_wuhan = true
-            else
-                continue
-            end
-        end
-
+    for bit_actual ∈ bits_local
         __β = deepcopy(β)
 
         ID_infectious = findall(bit_actual .&& bit_I)
@@ -126,26 +118,24 @@ while T < end_time
         bit_infected = (rand(length(ID_susceptibl)) .< (1 .- (1 - __β).^n_contact))
         n_infected = count(bit_infected)
 
-                 ID_infected   = ID_susceptibl[bit_infected]
-           state[ID_infected] .= 'E'
-          LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
-        RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
-            FROM[ID_infected] .= ID_from[bit_infected]
-           WHERE[ID_infected] .= LOCATION[ID_infected]
-        if flag_test println("              & $(length(ID_infected)) at phase $phase") end
-
-        if flag_wuhan break end        
+        @inbounds          ID_infected   = ID_susceptibl[bit_infected]
+        @inbounds    state[ID_infected] .= 'E'
+        @inbounds   LATENT[ID_infected] .= round.(rand(latent_period, n_infected))
+        @inbounds RECOVERY[ID_infected] .= LATENT[ID_infected] + round.(rand(recovery_period, n_infected))
+        @inbounds     FROM[ID_infected] .= ID_from[bit_infected]
+        @inbounds    WHERE[ID_infected] .= LOCATION[ID_infected]
+        if flag_test print(".") end
     end
 end
 n_R = n_R_[end]
 ndwt_ = cumsum(Matrix(ndwt_), dims = 1)
 ndwt = collect(ndwt_[end,:])
-TimeEvolution = DataFrame(; n_S_, n_E_, n_I_, n_R_)
+TimeEvolution = DataFrame(; n_S_, n_E_, n_I_, n_R_, n_M_)
 DATA = DataFrame(log_degree = log10.(indegree), log_R = log10.(ndwt))
 log_degree = DATA.log_degree
      log_R = DATA.log_R
   isescape = count(log_R .> 0) > 1
-    
+
 print(rgb3(1 - logistic(log10(n_R), 4, 1)), "$seed-($blockade) ", Crayon(reset = true))
 
 try
@@ -159,15 +149,13 @@ network_parity = mod(sum(sum.(NODE_blocked)),2)
 
 jldsave("$seed rslt.jld2";
         T, n_R, network_parity, isescape,
-        slope, ndwt, ndwt_, host, FROM, WHERE, WHEN,
+        slope, ndwt, ndwt_,
         TimeEvolution, DATA
-        # max_tier, n_I_tier, first_escape
-        # BD, pregenogram, 
         )
 if flag_test
-        jldsave("$seed test.jld2";
-        ndwi_, beta0_, beta1_
-        )
+    jldsave("$seed adtn.jld2";
+            host, FROM, WHERE, WHEN, ndwi_, beta0_, beta1_
+            )
 end
 
 preview = open("cnfg.csv", "a")
