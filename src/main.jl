@@ -42,6 +42,8 @@ function simulation(seed_number::Int64
     FROM     = zeros(Int32, n)
     WHERE    = zeros(Int16, n)
     WHEN     = zeros(Int16, n)
+    LON      = zeros(Float16, n)
+    LAT      = zeros(Float16, n)
     
     Random.seed!(seed_number);
     bit_movable = .!(rand(n) .< blockade)
@@ -58,14 +60,18 @@ function simulation(seed_number::Int64
         WHEN[host] = 1
 
     coordinate = XY[:,LOCATION] + (Float16(0.1) * randn(Float16, 2, n))
-    bits_C = [(country[LOCATION] .== c) for c in countrynames]
-    
+    bits_C = [(country[LOCATION] .== c) for c in countrynames]    
+    LON[host] = coordinate[1,host]
+    LAT[host] = coordinate[2,host]
+
 while T < end_time
     T += 1
 
     @inbounds LATENT   .-= 1; bit_LATENT   = (LATENT   .== 0); state[bit_LATENT  ] .= 'I'
     @inbounds RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
     WHEN[bit_LATENT] .= T
+    LON[bit_LATENT] .= coordinate[1,bit_LATENT]
+    LAT[bit_LATENT] .= coordinate[2,bit_LATENT]
 
     @inbounds bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S)
     @inbounds bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E)
@@ -154,7 +160,7 @@ jldsave("$seed rslt.jld2";
         )
 if flag_test
     jldsave("$seed adtn.jld2";
-            host, FROM, WHERE, WHEN, ndwi_, beta0_, beta1_
+            host, FROM, WHERE, WHEN, LON, LAT, ndwi_, beta0_, beta1_
             )
 end
 
