@@ -3,22 +3,15 @@ function simulation(seed_number::Int64
     , blockade
     , T0
     , σ
-    , β
     , NODE0
     , NODE_blocked
-    , N
-    , XY
-    , country
-    , countrynames
-    , indegree
-    , atlantic
 )
 
     n = 800000
     end_time = flag_test ? 100 : 500
     # T0 = 50
 
-    NODE = copy(NODE0)
+    NODE = deepcopy(NODE0)
     latent_period = Weibull(3, 7.17) # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7014672/#__sec2title
     recovery_period = Weibull(3, 7.17)
 
@@ -69,9 +62,9 @@ while T < end_time
 
     @inbounds LATENT   .-= 1; bit_LATENT   = (LATENT   .== 0); state[bit_LATENT  ] .= 'I'
     @inbounds RECOVERY .-= 1; bit_RECOVERY = (RECOVERY .== 0); state[bit_RECOVERY] .= 'R'
-    WHEN[bit_LATENT] .= T
-    LON[bit_LATENT] .= coordinate[1,bit_LATENT]
-    LAT[bit_LATENT] .= coordinate[2,bit_LATENT]
+    @inbounds WHEN[bit_LATENT] .= T
+    @inbounds LON[bit_LATENT] .= coordinate[1,bit_LATENT]
+    @inbounds LAT[bit_LATENT] .= coordinate[2,bit_LATENT]
 
     @inbounds bit_S = (state .== 'S'); n_S = count(bit_S); push!(n_S_, n_S)
     @inbounds bit_E = (state .== 'E'); n_E = count(bit_E); push!(n_E_, n_E)
