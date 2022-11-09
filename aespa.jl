@@ -37,7 +37,7 @@ begin
     if isempty(ARGS)
         flag_test = true
     else
-        flag_test = scenario.flag_test
+        flag_test = isone(scenario.flag_test)
     end
     temp_code = scenario.temp_code
     first_seed = scenario.first_seed
